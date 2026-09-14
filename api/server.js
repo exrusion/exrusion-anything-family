@@ -137,6 +137,14 @@ function quote(providerId) {
   };
 }
 
+function errorText(value, fallback = "Provider request failed") {
+  if (!value) return fallback;
+  if (typeof value === "string") return value;
+  if (Array.isArray(value)) return value.map((item) => errorText(item, "")).filter(Boolean).join(" ") || fallback;
+  if (typeof value === "object") return errorText(value.message || value.error || value.details || value.reason, fallback);
+  return String(value);
+}
+
 async function upstream(url, options = {}) {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), 25_000);
@@ -146,7 +154,7 @@ async function upstream(url, options = {}) {
     let body;
     try { body = text ? JSON.parse(text) : {}; } catch { body = { error: text || "Invalid upstream response" }; }
     if (!response.ok) {
-      const error = new Error(body.error || body.message || `Provider returned ${response.status}`);
+      const error = new Error(errorText(body, `Provider returned ${response.status}`));
       error.status = response.status;
       error.body = body;
       throw error;
