@@ -39,35 +39,35 @@ const providerContent = {
     description: "Use StonkFun’s stock, commodity and custom pairs with creator or holder rewards.",
     mechanic: "Wallet-signed API",
     hint: "Built for paired markets",
-    logo: "S",
+    logo: "https://www.stonkfun.xyz/stonk-mark.svg",
   },
   pumpfun: {
     headline: "Make the meme. Launch the coin.",
     description: "Route a culture coin through the secured Pump.fun custom-pair launch adapter.",
     mechanic: "Secured launch adapter",
     hint: "Fast meme launch",
-    logo: "P",
+    logo: "https://pump.fun/pump-logomark.svg",
   },
   pons: {
     headline: "Creators meet onchain markets.",
     description: "Launch a paired market on Robinhood Chain and direct creator fees to your connected wallet.",
     mechanic: "Direct factory contract",
     hint: "Creator-first market",
-    logo: "P",
+    logo: "https://www.ponsfamily.com/pons.png",
   },
   flap: {
     headline: "Program the token. Ship on BNB.",
     description: "Create a Flap Tax Token V3 with selectable buy and sell tax plus a live BNB or RWA pair.",
     mechanic: "BNB Portal V6",
     hint: "Programmable tax token",
-    logo: "✣",
+    logo: "https://flap.sh/icon.svg",
   },
   ember: {
     headline: "Send every fee somewhere useful.",
     description: "Launch on a Meteora curve and distribute the creator side to holders in the selected pair token.",
     mechanic: "Meteora DBC route",
     hint: "Fee-powered market",
-    logo: "●",
+    logo: "https://embercurve.fun/apple-touch-icon.png",
   },
 };
 
@@ -128,7 +128,8 @@ function selectProvider(button) {
   $("#heroNetwork").textContent = button.dataset.chain;
   $("#heroMechanic").textContent = content.mechanic;
   $("#formHint").textContent = content.hint;
-  $("#sideLogo").textContent = content.logo;
+  $("#sideLogo").src = content.logo;
+  $("#sideLogo").alt = `${button.dataset.name} logo`;
   $("#providerFee").textContent = moneyBps(providerFee); $("#totalFee").textContent = moneyBps(providerFee);
   $("#stonkOptions").hidden = button.dataset.provider !== "stonkfun";
   $("#pumpOptions").hidden = button.dataset.provider !== "pumpfun";
@@ -186,7 +187,7 @@ $("#assetImage").addEventListener("change", (event) => {
 
 $("#launchForm").addEventListener("submit", (event) => {
   event.preventDefault(); const ticker = $("#ticker").value.trim().toUpperCase();
-  $("#summaryName").textContent = $("#marketName").value.trim(); $("#summaryTicker").textContent = "$" + ticker; $("#summaryIcon").textContent = ticker[0] || "A";
+  $("#summaryName").textContent = $("#marketName").value.trim(); $("#summaryTicker").textContent = "$" + ticker; $("#summaryLogo").src = providerContent[selected.dataset.provider].logo; $("#summaryLogo").alt = `${selected.dataset.name} logo`;
   $("#summaryProvider").textContent = selected.dataset.name; $("#summaryRoute").textContent = selected.dataset.name; $("#summaryNetwork").textContent = selected.dataset.chain;
   $("#summaryBuy").textContent = $("#initialBuy").value || "0"; $("#summaryFee").textContent = $("#totalFee").textContent;
   $("#launchNow").textContent = `Connect & launch on ${selected.dataset.name}`; $("#intentMessage").textContent = "Your wallet will show the final network transaction before anything is submitted.";
