@@ -72,7 +72,7 @@ async function loadQuote() {
 }
 
 function normalizePairs(data) {
-  const list = data.pairs || data.data || [];
+  const list = data.pairs || data.data?.pairs || data.data || [];
   return Array.isArray(list) ? list.map((item) => ({
     label: item.ticker ? `${item.ticker} — ${item.symbol || item.name || "Launch pair"}` : item.displayName || item.name || item.symbol || "Pair",
     value: selected.dataset.provider === "pumpfun" ? item.ticker || item.symbol : item.quoteMint || item.mint || item.address || item.id,
