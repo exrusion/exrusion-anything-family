@@ -352,10 +352,29 @@ $("#assetImage").addEventListener("change", (event) => {
 
 function multiReadiness(ids) {
   const issues = [];
-  if (ids.some((id) => ["stonkfun", "flap", "ember"].includes(id)) && !imageData) issues.push("add a token image");
-  if (ids.includes("pumpfun") && (!$("#pumpImageUrl").value.trim() || !$("#xUrl").value.trim())) issues.push("complete Pump.fun’s X post and public image URLs");
-  if (ids.includes("pons") && !imageData && !$("#publicLogoUrl").value.trim()) issues.push("add a Pons token image or public logo URL");
+  if (ids.length && !imageData) issues.push("add a token image");
+  if (ids.includes("pumpfun") && !$("#xUrl").value.trim()) issues.push("add Pump.fun’s X post URL");
   return issues;
+}
+
+function readableError(value, fallback = "Launch failed.") {
+  if (!value) return fallback;
+  if (typeof value === "string") return value;
+  if (Array.isArray(value)) return value.map((item) => readableError(item, "")).filter(Boolean).join(" ") || fallback;
+  if (value instanceof Error) return readableError(value.message, fallback);
+  if (typeof value === "object") return readableError(value.message || value.error || value.details || value.reason, fallback);
+  return String(value);
+}
+
+async function uploadTokenImage(progressMessage = "Uploading your token image…") {
+  if (!imageData) throw new Error("Add a token image first.");
+  $("#intentMessage").textContent = progressMessage;
+  const response = await fetch(`${apiUrl}/v1/metadata/image`, {
+    method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ logo: imageData }),
+  });
+  const uploaded = await response.json();
+  if (!response.ok || !uploaded.url) throw new Error(readableError(uploaded, "Token image upload failed."));
+  return uploaded.url;
 }
 
 function renderLaunchQueue(ids) {
@@ -421,34 +440,27 @@ async function launchStonk() {
   const body = { provider: "stonkfun", creatorWallet: walletAddress, quoteMint: $("#pairSelect").value, name: $("#marketName").value, ticker: $("#ticker").value, mode: $("#stonkMode").value, logo: imageData, feeTier: $("#stonkFeeTier").value, transferFeeBps: Number($("#stonkRewardTax").value), airdropPercent: Number($("#stonkAirdrop").value || 0), airdropTier: $("#stonkAirdropTier").value, links: { website: $("#stonkWebsite").value, x: $("#stonkX").value, telegram: $("#stonkTelegram").value } };
   if (devValue > 0) body[$("#stonkDevMode").value === "sol" ? "devBuySol" : "devBuyPercent"] = devValue;
   const response = await fetch(`${apiUrl}/v1/launches/prepare`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body) });
-  const prepared = await response.json(); if (!response.ok) throw new Error(prepared.details?.join(" ") || prepared.error || "Could not prepare launch.");
+  const prepared = await response.json(); if (!response.ok) throw new Error(readableError(prepared, "Could not prepare launch."));
   const transaction = Transaction.from(base64ToBytes(prepared.paymentTransaction));
   const signed = await wallet.signTransaction(transaction);
   const submit = await fetch(`${apiUrl}/v1/launches/submit`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ provider: "stonkfun", signedQuote: prepared.signedQuote, signedTransaction: bytesToBase64(signed.serialize()), logo: imageData }) });
-  const result = await submit.json(); if (!submit.ok) throw new Error(result.error || result.message || "Launch submission failed.");
+  const result = await submit.json(); if (!submit.ok) throw new Error(readableError(result, "Launch submission failed."));
   return { message: `StonkFun launch submitted${result.paymentSignature ? ` · ${shortAddress(result.paymentSignature)}` : ""}.`, url: result.url || result.explorerUrl };
 }
 
 async function launchPump() {
-  const body = { provider: "pumpfun", idempotencyKey: `${launchAttemptId}:pumpfun`, name: $("#marketName").value, ticker: $("#ticker").value, description: $("#description").value || "Launch from Anything", imageUrl: $("#pumpImageUrl").value, xUrl: $("#xUrl").value, pairSymbol: $("#pairSelect").value, creatorFeeBps: 0, cashback: $("#pumpRewards").value === "holders", mayhemMode: $("#pumpMayhem").checked };
-  if (!body.imageUrl || !body.xUrl || !body.pairSymbol) throw new Error("Pump.fun requires an X image URL, X post URL, and launch pair.");
+  if (!$("#xUrl").value.trim() || !$("#pairSelect").value) throw new Error("Pump.fun requires an X post URL and launch pair.");
+  const imageUrl = await uploadTokenImage("Uploading your Pump.fun token image…");
+  const body = { provider: "pumpfun", idempotencyKey: `${launchAttemptId}:pumpfun`, name: $("#marketName").value, ticker: $("#ticker").value, description: $("#description").value || "Launch from Anything", imageUrl, xUrl: $("#xUrl").value.trim(), pairSymbol: $("#pairSelect").value, creatorFeeBps: 0, cashback: $("#pumpRewards").value === "holders", mayhemMode: $("#pumpMayhem").checked };
   const response = await fetch(`${apiUrl}/v1/launches/prepare`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body) });
-  const result = await response.json(); if (!response.ok) throw new Error(result.error || "Pump.fun launch failed.");
+  const result = await response.json(); if (!response.ok) throw new Error(readableError(result, "Pump.fun launch failed."));
   return { message: `Pump.fun launch submitted${result.mint ? ` · ${shortAddress(result.mint)}` : ""}.`, url: result.url || result.explorerUrl };
 }
 
 async function launchPons() {
   if (walletType !== "evm") await connectWallet();
   await ensureEvmTools();
-  let logo = $("#publicLogoUrl").value.trim();
-  if (!logo && imageData) {
-    $("#intentMessage").textContent = "Uploading the Pons token image…";
-    const upload = await fetch(`${apiUrl}/v1/metadata/image`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ logo: imageData }) });
-    const uploaded = await upload.json();
-    if (!upload.ok || !uploaded.url) throw new Error(uploaded.error || "Pons image upload failed.");
-    logo = uploaded.url;
-  }
-  if (!logo) throw new Error("Add a token image or public HTTPS logo URL for Pons.");
+  const logo = await uploadTokenImage("Uploading your Pons token image…");
   const provider = evmProvider;
   try { await provider.request({ method: "wallet_switchEthereumChain", params: [{ chainId: "0x1237" }] }); }
   catch (error) { if (error?.code !== 4902) throw error; await provider.request({ method: "wallet_addEthereumChain", params: [{ chainId: "0x1237", chainName: "Robinhood Chain", nativeCurrency: { name: "Ether", symbol: "ETH", decimals: 18 }, rpcUrls: [RH_RPC], blockExplorerUrls: ["https://robinhoodchain.blockscout.com"] }] }); }
@@ -592,7 +604,7 @@ $("#launchNow").addEventListener("click", async () => {
       try {
         const result = await launchProviderById(id); multiResults.set(id, { ok: true, result }); successCount++; updateQueueStatus(id, "success", result.message);
       } catch (error) {
-        const message = error.message || "Launch failed."; multiResults.set(id, { ok: false, message }); failures.push(`${providerButton.dataset.name}: ${message}`); updateQueueStatus(id, "failed", message);
+        const message = readableError(error); multiResults.set(id, { ok: false, message }); failures.push(`${providerButton.dataset.name}: ${message}`); updateQueueStatus(id, "failed", message);
       }
     }
     if (successCount === activeMultiIds.length) {
@@ -608,7 +620,7 @@ $("#launchNow").addEventListener("click", async () => {
     const result = await launchCurrentProvider();
     $("#intentMessage").innerHTML = result.url ? `${result.message} <a href="${result.url}" target="_blank" rel="noopener">View transaction ↗</a>` : result.message;
     button.textContent = "Launch submitted"; showToast("Launch submitted successfully.");
-  } catch (error) { $("#intentMessage").textContent = error.message || "Launch failed."; button.textContent = "Try launch again"; button.disabled = false; }
+  } catch (error) { $("#intentMessage").textContent = readableError(error); button.textContent = "Try launch again"; button.disabled = false; }
 });
 
 checkApi(); loadQuote(); loadPairs();
