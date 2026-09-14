@@ -11,6 +11,7 @@ let evmWalletName = "";
 let walletChoiceResolver = null;
 let launchMode = "single";
 let activeMultiIds = [];
+let launchAttemptId = "";
 const providerDrafts = new Map();
 const multiResults = new Map();
 const announcedEvmWallets = new Map();
@@ -276,16 +277,31 @@ function normalizePairs(data) {
 }
 async function loadPairs() {
   const providerId = selected.dataset.provider;
-  const select = $("#pairSelect"); select.innerHTML = '<option value="">Loading launch pairs…</option>';
+  const select = $("#pairSelect"); select.disabled = true; select.innerHTML = '<option value="">Loading launch pairs…</option>';
   try {
     const response = await fetch(`${apiUrl}/v1/pairs?provider=${providerId}`); const data = await response.json(); if (!response.ok) throw new Error(data.error);
     if (selected.dataset.provider !== providerId) return;
-    const pairs = normalizePairs(data); select.innerHTML = pairs.map((pair) => `<option value="${String(pair.value).replaceAll('"', '&quot;')}" data-decimals="${pair.decimals}">${pair.label}</option>`).join("") || '<option value="">Default provider pair</option>';
-  } catch { if (selected.dataset.provider === providerId) select.innerHTML = '<option value="">Provider default</option>'; }
+    const pairs = normalizePairs(data);
+    select.innerHTML = pairs.map((pair) => `<option value="${String(pair.value).replaceAll('"', '&quot;')}" data-decimals="${pair.decimals}">${pair.label}</option>`).join("") || '<option value="">No launch pairs available</option>';
+    select.disabled = pairs.length === 0;
+  } catch {
+    if (selected.dataset.provider === providerId) {
+      select.innerHTML = '<option value="">Provider route unavailable — refresh to retry</option>';
+      select.disabled = true;
+    }
+  }
 }
 
 async function checkApi() {
-  try { const response = await fetch(`${apiUrl}/health`); if (!response.ok) throw new Error(); $("#apiStatus").textContent = "Launch routing online"; $("#apiStatus").parentElement.classList.add("online"); }
+  try {
+    const [healthResponse, providersResponse] = await Promise.all([fetch(`${apiUrl}/health`), fetch(`${apiUrl}/v1/providers`)]);
+    if (!healthResponse.ok || !providersResponse.ok) throw new Error();
+    const providerState = await providersResponse.json();
+    const ready = Array.isArray(providerState.data) && providerState.data.length === 5 && providerState.data.every((provider) => provider.execution !== "configuration_required");
+    if (!ready) throw new Error();
+    $("#apiStatus").textContent = "5 launch routes online";
+    $("#apiStatus").parentElement.classList.add("online");
+  }
   catch { $("#apiStatus").textContent = "Interface mode"; }
 }
 
@@ -324,7 +340,7 @@ function multiReadiness(ids) {
   const issues = [];
   if (ids.some((id) => ["stonkfun", "flap", "ember"].includes(id)) && !imageData) issues.push("add a token image");
   if (ids.includes("pumpfun") && (!$("#pumpImageUrl").value.trim() || !$("#xUrl").value.trim())) issues.push("complete Pump.fun’s X post and public image URLs");
-  if (ids.includes("pons") && !$("#publicLogoUrl").value.trim()) issues.push("add Pons’ public logo URL");
+  if (ids.includes("pons") && !imageData && !$("#publicLogoUrl").value.trim()) issues.push("add a Pons token image or public logo URL");
   return issues;
 }
 
@@ -351,6 +367,7 @@ function updateQueueStatus(id, state, detail = "") {
 
 $("#launchForm").addEventListener("submit", (event) => {
   event.preventDefault(); captureProviderDraft();
+  launchAttemptId = window.crypto.randomUUID();
   const ticker = $("#ticker").value.trim().toUpperCase();
   $("#summaryName").textContent = $("#marketName").value.trim(); $("#summaryTicker").textContent = "$" + ticker;
   if (launchMode === "multi") {
@@ -395,7 +412,7 @@ async function launchStonk() {
 }
 
 async function launchPump() {
-  const body = { provider: "pumpfun", name: $("#marketName").value, ticker: $("#ticker").value, description: $("#description").value || "Launch from Anything", imageUrl: $("#pumpImageUrl").value, xUrl: $("#xUrl").value, pairSymbol: $("#pairSelect").value, creatorFeeBps: Number($("#pumpCreatorFee").value || 0) };
+  const body = { provider: "pumpfun", idempotencyKey: `${launchAttemptId}:pumpfun`, name: $("#marketName").value, ticker: $("#ticker").value, description: $("#description").value || "Launch from Anything", imageUrl: $("#pumpImageUrl").value, xUrl: $("#xUrl").value, pairSymbol: $("#pairSelect").value, creatorFeeBps: 0 };
   if (!body.imageUrl || !body.xUrl || !body.pairSymbol) throw new Error("Pump.fun requires an X image URL, X post URL, and launch pair.");
   const response = await fetch(`${apiUrl}/v1/launches/prepare`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body) });
   const result = await response.json(); if (!response.ok) throw new Error(result.error || "Pump.fun launch failed.");
@@ -405,7 +422,15 @@ async function launchPump() {
 async function launchPons() {
   if (walletType !== "evm") await connectWallet();
   await ensureEvmTools();
-  const logo = $("#publicLogoUrl").value.trim(); if (!logo) throw new Error("Pons requires a public HTTPS logo URL.");
+  let logo = $("#publicLogoUrl").value.trim();
+  if (!logo && imageData) {
+    $("#intentMessage").textContent = "Uploading the Pons token image…";
+    const upload = await fetch(`${apiUrl}/v1/metadata/image`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ logo: imageData }) });
+    const uploaded = await upload.json();
+    if (!upload.ok || !uploaded.url) throw new Error(uploaded.error || "Pons image upload failed.");
+    logo = uploaded.url;
+  }
+  if (!logo) throw new Error("Add a token image or public HTTPS logo URL for Pons.");
   const provider = evmProvider;
   try { await provider.request({ method: "wallet_switchEthereumChain", params: [{ chainId: "0x1237" }] }); }
   catch (error) { if (error?.code !== 4902) throw error; await provider.request({ method: "wallet_addEthereumChain", params: [{ chainId: "0x1237", chainName: "Robinhood Chain", nativeCurrency: { name: "Ether", symbol: "ETH", decimals: 18 }, rpcUrls: [RH_RPC], blockExplorerUrls: ["https://robinhoodchain.blockscout.com"] }] }); }

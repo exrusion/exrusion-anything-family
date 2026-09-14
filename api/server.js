@@ -14,7 +14,7 @@ const pumpAdapterSecret = String(process.env.PUMPFUN_ADAPTER_SECRET || "");
 const emberApiBase = String(process.env.EMBER_API_BASE || "https://embercurve.fun").replace(/\/$/, "");
 const flapApiBase = String(process.env.FLAP_API_BASE || "https://flap.sh").replace(/\/$/, "");
 const allowedOrigins = new Set(
-  (process.env.ALLOWED_ORIGINS || "https://anything.family,http://localhost:3000")
+  (process.env.ALLOWED_ORIGINS || "https://anything.family,https://www.anything.family,https://exrusion-anything-family.vercel.app,http://localhost:3000")
     .split(",")
     .map((item) => item.trim())
     .filter(Boolean),
@@ -168,9 +168,17 @@ function validateIntent(body) {
 
 function imageBlob(dataUrl) {
   const match = String(dataUrl || "").match(/^data:(image\/[a-zA-Z0-9.+-]+);base64,([a-zA-Z0-9+/=]+)$/);
-  if (!match) throw new Error("A valid image upload is required.");
+  if (!match) {
+    const error = new Error("A valid image upload is required.");
+    error.status = 422;
+    throw error;
+  }
   const bytes = Buffer.from(match[2], "base64");
-  if (!bytes.length || bytes.length > 4_500_000) throw new Error("Image must be smaller than 4.5 MB.");
+  if (!bytes.length || bytes.length > 4_500_000) {
+    const error = new Error("Image must be smaller than 4.5 MB.");
+    error.status = 422;
+    throw error;
+  }
   return { blob: new Blob([bytes], { type: match[1] }), type: match[1] };
 }
 
@@ -278,6 +286,24 @@ const server = http.createServer(async (req, res) => {
       return json(res, 200, { image: uploaded.url, uri: metadata.uri }, origin);
     } catch (error) {
       return json(res, error.status || 502, error.body || { error: error.message || "ember_metadata_failed" }, origin);
+    }
+  }
+
+  if (req.method === "POST" && url.pathname === "/v1/metadata/image") {
+    try {
+      const body = await readBody(req);
+      const image = imageBlob(body.logo);
+      const form = new FormData();
+      form.append("file", image.blob, `token.${image.type.split("/")[1] || "png"}`);
+      const uploaded = await upstream(`${emberApiBase}/api/upload/image`, { method: "POST", body: form });
+      if (!uploaded.url) throw new Error("Image host did not return a public URL.");
+      const uploadedUrl = String(uploaded.url);
+      const publicUrl = uploadedUrl.startsWith("ipfs://")
+        ? `https://ipfs.io/ipfs/${uploadedUrl.slice("ipfs://".length)}`
+        : uploadedUrl;
+      return json(res, 200, { url: publicUrl, uri: uploadedUrl }, origin);
+    } catch (error) {
+      return json(res, error.status || 502, error.body || { error: error.message || "image_upload_failed" }, origin);
     }
   }
 

@@ -1,13 +1,13 @@
 # Anything
 
-Unified launchpad interface for StonkFun, Pump.fun and Pons.
+Unified self-service launchpad interface for StonkFun, Pump.fun, Pons, Flap and Ember.
 
 ## Apps
 
 - `web/` — static frontend deployed to Vercel
 - `api/` — Node.js API deployed to Railway
 
-Live transaction submission is intentionally gated behind verified provider
-adapter configuration. The public API can safely create launch intents and fee
-quotes without accepting custody of creator proceeds.
-
+Production routes use wallet-signed transactions for StonkFun, Pons, Flap and
+Ember. Pump.fun custom-pair launches use the secured, idempotent PumpXStocks
+adapter with a forced 0% creator fee for Anything. Provider fees and network
+costs still apply; Anything does not add a platform cut.
