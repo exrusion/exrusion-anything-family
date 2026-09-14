@@ -11,6 +11,7 @@
   <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=Instrument+Serif:ital@0;1&family=Manrope:wght@400;500;600;700;800&family=Nunito+Sans:wght@500;600;700;800;900&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Sora:wght@400;500;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="/styles.css">
   <link rel="stylesheet" href="/brand-logos.css">
+  <link rel="stylesheet" href="/wallet-selector.css">
 </head>
 <body data-theme="stonkfun">
   <nav class="topbar">
@@ -93,7 +94,16 @@
   </main>
 
   <div class="drawer" id="drawer" aria-hidden="true"><button class="backdrop" id="backdrop" aria-label="Close review"></button><section><div class="drawer-title"><div><p class="kicker">Final check</p><h2>Review launch</h2></div><button id="closeDrawer" aria-label="Close">×</button></div><div class="token-summary"><span class="summary-provider-logo"><img id="summaryLogo" src="https://www.stonkfun.xyz/stonk-mark.svg" alt="StonkFun logo"></span><span><b id="summaryName">Untitled market</b><small><span id="summaryTicker">$TICKER</span> · <span id="summaryProvider">StonkFun</span></small></span></div><div class="fee summary"><p><span>Route</span><b id="summaryRoute">StonkFun</b></p><p><span>Network</span><b id="summaryNetwork">Solana</b></p><p><span>Launch amount</span><b id="summaryBuy">0</b></p><p class="total"><span>Shown provider fee</span><b id="summaryFee">1.00%</b></p></div><div class="risk-note">This creates an on-chain asset. Verify every amount and address in your wallet before signing; transactions cannot be reversed.</div><div class="drawer-bottom"><p id="intentMessage">Your wallet will show the final transaction.</p><button class="primary" id="launchNow">Connect & launch on StonkFun</button></div></section></div>
+  <div class="wallet-chooser" id="walletChooser" aria-hidden="true">
+    <button class="wallet-chooser-backdrop" id="walletChooserBackdrop" aria-label="Close wallet selector"></button>
+    <section role="dialog" aria-modal="true" aria-labelledby="walletChooserTitle">
+      <div class="wallet-chooser-title"><div><p class="kicker">EVM wallet</p><h2 id="walletChooserTitle">Choose your wallet</h2></div><button id="closeWalletChooser" aria-label="Close">×</button></div>
+      <p class="wallet-chooser-copy">Select which wallet Pons or Flap should use. Nothing opens until you choose.</p>
+      <div class="wallet-options" id="walletOptions"></div>
+      <p class="wallet-detection" id="walletDetection">Looking for installed wallets…</p>
+    </section>
+  </div>
   <div class="toast" id="toast" role="status"></div>
-  <script src="/config.js"></script><script type="module" src="/app.js?v=20260914-brand"></script>
+  <script src="/config.js"></script><script type="module" src="/app.js?v=20260914-wallet-selector"></script>
 </body>
 </html>
