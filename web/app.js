@@ -149,7 +149,7 @@ async function loadQuote() {
     const response = await fetch(`${apiUrl}/v1/quote?provider=${selected.dataset.provider}`); if (!response.ok) return;
     const quote = await response.json();
     $("#providerFee").textContent = moneyBps(quote.providerFeeBps); $("#platformFee").textContent = moneyBps(quote.platformFeeBps); $("#totalFee").textContent = moneyBps(quote.totalFeeBps);
-    $("#feeDisclosure").textContent = selected.dataset.provider === "flap" ? "Flap charges BNB network gas and any selected token tax; Anything currently adds 0%." : selected.dataset.provider === "ember" ? "Ember’s selected trade tax follows its live fee split; Anything currently adds 0%." : quote.platformRecipientConfigured ? "The Anything fee is shown before signing; creator proceeds follow the selected provider." : "Anything fee is currently 0% until a treasury wallet is configured. Provider fees still apply.";
+    $("#feeDisclosure").textContent = selected.dataset.provider === "flap" ? "Anything adds 0%. Flap network gas and your selected token tax still apply." : selected.dataset.provider === "ember" ? "Anything adds 0%. Ember’s selected trade tax follows its live fee split." : "Anything is free to use. Only the selected provider and network costs apply.";
   } catch {}
 }
 
