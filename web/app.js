@@ -6,6 +6,10 @@ let selected = providers[0];
 let imageData = "";
 let walletAddress = "";
 let walletType = "";
+let evmProvider = null;
+let evmWalletName = "";
+let walletChoiceResolver = null;
+const announcedEvmWallets = new Map();
 let Transaction;
 let createPublicClient, createWalletClient, custom, decodeEventLog, defineChain, getContractAddress, http, keccak256, parseUnits, toBytes, toHex;
 let robinhoodChain;
@@ -98,10 +102,80 @@ function showToast(message) { const toast = $("#toast"); toast.textContent = mes
 function bytesToBase64(bytes) { let binary = ""; for (let i = 0; i < bytes.length; i += 0x8000) binary += String.fromCharCode(...bytes.subarray(i, i + 0x8000)); return btoa(binary); }
 function base64ToBytes(value) { return Uint8Array.from(atob(value), (char) => char.charCodeAt(0)); }
 
+function walletIdentity(provider, info = {}) {
+  const rdns = String(info.rdns || "").toLowerCase();
+  if (rdns === "io.metamask" || (provider?.isMetaMask && !provider?.isTrust && !provider?.isTrustWallet)) return { name: "MetaMask", key: "metamask", order: 1 };
+  if (rdns.includes("trust") || provider?.isTrust || provider?.isTrustWallet) return { name: "Trust Wallet", key: "trust", order: 2 };
+  if (rdns.includes("coinbase") || provider?.isCoinbaseWallet) return { name: "Coinbase Wallet", key: "coinbase", order: 3 };
+  return { name: info.name || "Browser wallet", key: rdns || info.uuid || "browser", order: 10 };
+}
+
+window.addEventListener("eip6963:announceProvider", (event) => {
+  const detail = event.detail || {};
+  if (!detail.provider) return;
+  const identity = walletIdentity(detail.provider, detail.info);
+  announcedEvmWallets.set(detail.info?.uuid || identity.key, { provider: detail.provider, info: detail.info || {}, ...identity });
+});
+window.dispatchEvent(new Event("eip6963:requestProvider"));
+
+function detectedEvmWallets() {
+  const wallets = [...announcedEvmWallets.values()];
+  const injected = Array.isArray(window.ethereum?.providers) ? window.ethereum.providers : window.ethereum ? [window.ethereum] : [];
+  injected.forEach((provider, index) => {
+    if (wallets.some((wallet) => wallet.provider === provider)) return;
+    const identity = walletIdentity(provider, { uuid: `injected-${index}` });
+    wallets.push({ provider, info: {}, ...identity });
+  });
+  const unique = [];
+  wallets.sort((a, b) => a.order - b.order).forEach((wallet) => {
+    if (!unique.some((item) => item.provider === wallet.provider || (item.key === wallet.key && item.name === wallet.name))) unique.push(wallet);
+  });
+  return unique;
+}
+
+function closeWalletChooser(reason = "Wallet connection cancelled.") {
+  const chooser = $("#walletChooser");
+  chooser.classList.remove("open"); chooser.setAttribute("aria-hidden", "true");
+  if (walletChoiceResolver) { walletChoiceResolver.reject(new Error(reason)); walletChoiceResolver = null; }
+}
+
+function renderWalletOptions() {
+  const wallets = detectedEvmWallets();
+  const container = $("#walletOptions"); container.replaceChildren();
+  wallets.forEach((wallet) => {
+    const button = document.createElement("button"); button.type = "button";
+    let badge;
+    if (wallet.info?.icon?.startsWith("data:image/")) { badge = document.createElement("img"); badge.src = wallet.info.icon; badge.alt = ""; }
+    else { badge = document.createElement("span"); badge.className = `wallet-fallback ${wallet.key}`; badge.textContent = wallet.name.slice(0, 1); }
+    const label = document.createElement("span"); const name = document.createElement("b"); const detail = document.createElement("small");
+    name.textContent = wallet.name; detail.textContent = "Detected in this browser"; label.append(name, detail);
+    const arrow = document.createElement("i"); arrow.textContent = "→"; button.append(badge, label, arrow);
+    button.addEventListener("click", () => {
+      if (!walletChoiceResolver) return;
+      const resolver = walletChoiceResolver; walletChoiceResolver = null;
+      $("#walletChooser").classList.remove("open"); $("#walletChooser").setAttribute("aria-hidden", "true");
+      resolver.resolve(wallet);
+    });
+    container.append(button);
+  });
+  $("#walletDetection").textContent = wallets.length ? `${wallets.length} wallet${wallets.length === 1 ? "" : "s"} detected` : "No EVM wallet detected. Install MetaMask or Trust Wallet, then refresh.";
+}
+
+function chooseEvmWallet() {
+  window.dispatchEvent(new Event("eip6963:requestProvider"));
+  return new Promise((resolve, reject) => {
+    walletChoiceResolver = { resolve, reject };
+    const chooser = $("#walletChooser"); chooser.classList.add("open"); chooser.setAttribute("aria-hidden", "false");
+    renderWalletOptions();
+    setTimeout(renderWalletOptions, 250);
+  });
+}
+
 async function connectWallet() {
   if (["pons", "flap"].includes(selected.dataset.provider)) {
-    if (!window.ethereum) throw new Error("Install an EVM wallet such as MetaMask.");
-    const accounts = await window.ethereum.request({ method: "eth_requestAccounts" });
+    const wallet = await chooseEvmWallet();
+    evmProvider = wallet.provider; evmWalletName = wallet.name;
+    const accounts = await evmProvider.request({ method: "eth_requestAccounts" });
     walletAddress = accounts[0]; walletType = "evm";
   } else {
     const wallet = window.phantom?.solana || window.solana;
@@ -110,7 +184,7 @@ async function connectWallet() {
     walletAddress = result.publicKey.toString(); walletType = "solana";
   }
   document.querySelectorAll("[data-wallet]").forEach((button) => { button.textContent = shortAddress(walletAddress); });
-  showToast("Wallet connected.");
+  showToast(`${evmWalletName || "Wallet"} connected.`);
   return walletAddress;
 }
 
@@ -119,7 +193,7 @@ function selectProvider(button) {
   const providerId = button.dataset.provider;
   const content = providerContent[providerId];
   document.body.dataset.theme = providerId;
-  walletAddress = ""; walletType = ""; document.querySelectorAll("[data-wallet]").forEach((item) => { item.textContent = "Connect wallet"; });
+  walletAddress = ""; walletType = ""; evmProvider = null; evmWalletName = ""; document.querySelectorAll("[data-wallet]").forEach((item) => { item.textContent = "Connect wallet"; });
   const providerFee = Number(button.dataset.fee);
   $("#networkName").textContent = button.dataset.chain; $("#routeName").textContent = button.dataset.name; $("#settlement").textContent = button.dataset.chain + " settlement";
   $("#routeTone").textContent = button.dataset.tone;
@@ -177,6 +251,8 @@ async function checkApi() {
 
 providers.forEach((button) => button.addEventListener("click", () => selectProvider(button)));
 document.querySelectorAll("[data-wallet]").forEach((button) => button.addEventListener("click", async () => { try { await connectWallet(); } catch (error) { showToast(error.message); } }));
+$("#closeWalletChooser").addEventListener("click", () => closeWalletChooser());
+$("#walletChooserBackdrop").addEventListener("click", () => closeWalletChooser());
 $("#emberFee").addEventListener("change", (event) => { const fee = Number(event.target.value); $("#providerFee").textContent = moneyBps(fee); $("#totalFee").textContent = moneyBps(fee); selected.dataset.fee = String(fee); });
 
 $("#assetImage").addEventListener("change", (event) => {
@@ -222,7 +298,7 @@ async function launchPons() {
   if (walletType !== "evm") await connectWallet();
   await ensureEvmTools();
   const logo = $("#publicLogoUrl").value.trim(); if (!logo) throw new Error("Pons requires a public HTTPS logo URL.");
-  const provider = window.ethereum;
+  const provider = evmProvider;
   try { await provider.request({ method: "wallet_switchEthereumChain", params: [{ chainId: "0x1237" }] }); }
   catch (error) { if (error?.code !== 4902) throw error; await provider.request({ method: "wallet_addEthereumChain", params: [{ chainId: "0x1237", chainName: "Robinhood Chain", nativeCurrency: { name: "Ether", symbol: "ETH", decimals: 18 }, rpcUrls: [RH_RPC], blockExplorerUrls: ["https://robinhoodchain.blockscout.com"] }] }); }
   const publicClient = createPublicClient({ chain: robinhoodChain, transport: http(RH_RPC) });
@@ -242,8 +318,8 @@ async function launchPons() {
 }
 
 async function switchToBnb() {
-  try { await window.ethereum.request({ method: "wallet_switchEthereumChain", params: [{ chainId: "0x38" }] }); }
-  catch (error) { if (error?.code !== 4902) throw error; await window.ethereum.request({ method: "wallet_addEthereumChain", params: [{ chainId: "0x38", chainName: "BNB Smart Chain", nativeCurrency: { name: "BNB", symbol: "BNB", decimals: 18 }, rpcUrls: [BSC_RPC], blockExplorerUrls: ["https://bscscan.com"] }] }); }
+  try { await evmProvider.request({ method: "wallet_switchEthereumChain", params: [{ chainId: "0x38" }] }); }
+  catch (error) { if (error?.code !== 4902) throw error; await evmProvider.request({ method: "wallet_addEthereumChain", params: [{ chainId: "0x38", chainName: "BNB Smart Chain", nativeCurrency: { name: "BNB", symbol: "BNB", decimals: 18 }, rpcUrls: [BSC_RPC], blockExplorerUrls: ["https://bscscan.com"] }] }); }
 }
 
 function findFlapSalt() {
@@ -261,7 +337,7 @@ async function launchFlap() {
   await ensureEvmTools();
   await switchToBnb();
   const publicClient = createPublicClient({ chain: bnbChain, transport: http(BSC_RPC) });
-  const walletClient = createWalletClient({ account: walletAddress, chain: bnbChain, transport: custom(window.ethereum) });
+  const walletClient = createWalletClient({ account: walletAddress, chain: bnbChain, transport: custom(evmProvider) });
   const balance = await publicClient.getBalance({ address: walletAddress });
   const option = $("#pairSelect").selectedOptions[0];
   const quoteToken = $("#pairSelect").value || ZERO; const quoteDecimals = Number(option?.dataset.decimals || 18);
