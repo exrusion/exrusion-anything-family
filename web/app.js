@@ -9,6 +9,10 @@ let walletType = "";
 let evmProvider = null;
 let evmWalletName = "";
 let walletChoiceResolver = null;
+let launchMode = "single";
+let activeMultiIds = [];
+const providerDrafts = new Map();
+const multiResults = new Map();
 const announcedEvmWallets = new Map();
 let Transaction;
 let createPublicClient, createWalletClient, custom, decodeEventLog, defineChain, getContractAddress, http, keccak256, parseUnits, toBytes, toHex;
@@ -75,6 +79,14 @@ const providerContent = {
   },
 };
 
+const providerCosts = {
+  stonkfun: { label: "Default trade fee", value: "1.00%", totalLabel: "Launch charge", total: "Live quote", disclosure: "StonkFun receives its trading and quoted launch costs. Anything takes no cut." },
+  pumpfun: { label: "Bonding curve trade fee", value: "1.25%", totalLabel: "Token creation", total: "No creation fee", disclosure: "Pump.fun receives its trading fees. Network costs may apply; Anything takes no cut." },
+  pons: { label: "Launchpad launch fee", value: "0.0005 ETH", totalLabel: "Network cost", total: "Plus gas", disclosure: "Pons receives its launch and trading fees. Anything takes no cut." },
+  flap: { label: "Selected token tax", value: "3% buy / 10% sell", totalLabel: "Launch cost", total: "Initial buy + gas", disclosure: "Flap’s selected token taxes and BNB network costs apply. Anything takes no cut." },
+  ember: { label: "Selected trade tax", value: "2.00%", totalLabel: "Launch charge", total: "Provider quote", disclosure: "Ember applies its selected trade-tax split and network costs. Anything takes no cut." },
+};
+
 const PONS_FACTORY = "0x7eD598BcEf8bd9Edd8C97A195C6d13f40801EC7e";
 const ZERO = "0x0000000000000000000000000000000000000000";
 const RH_RPC = "https://rpc.mainnet.chain.robinhood.com";
@@ -101,6 +113,32 @@ function shortAddress(value) { return value ? `${value.slice(0, 5)}…${value.sl
 function showToast(message) { const toast = $("#toast"); toast.textContent = message; toast.classList.add("show"); setTimeout(() => toast.classList.remove("show"), 3600); }
 function bytesToBase64(bytes) { let binary = ""; for (let i = 0; i < bytes.length; i += 0x8000) binary += String.fromCharCode(...bytes.subarray(i, i + 0x8000)); return btoa(binary); }
 function base64ToBytes(value) { return Uint8Array.from(atob(value), (char) => char.charCodeAt(0)); }
+
+function currentMultiIds() { return [...document.querySelectorAll('.multi-options input:checked')].map((input) => input.value); }
+
+function renderProviderCosts(providerId = selected.dataset.provider) {
+  const cost = { ...providerCosts[providerId] };
+  if (providerId === "flap") cost.value = `${moneyBps($("#flapBuyTax").value)} buy / ${moneyBps($("#flapSellTax").value)} sell`;
+  if (providerId === "ember") cost.value = moneyBps($("#emberFee").value);
+  $("#providerFeeLabel").textContent = cost.label;
+  $("#providerFee").textContent = cost.value;
+  $("#totalFeeLabel").textContent = cost.totalLabel;
+  $("#totalFee").textContent = cost.total;
+  $("#platformFee").textContent = "0.00%";
+  $("#feeDisclosure").textContent = cost.disclosure;
+}
+
+function captureProviderDraft(providerId = selected.dataset.provider) {
+  if (!providerId) return;
+  providerDrafts.set(providerId, { pair: $("#pairSelect").value, initialBuy: $("#initialBuy").value });
+}
+
+function restoreProviderDraft(providerId) {
+  const draft = providerDrafts.get(providerId);
+  if (!draft) return;
+  if ([...$("#pairSelect").options].some((option) => option.value === draft.pair)) $("#pairSelect").value = draft.pair;
+  $("#initialBuy").value = draft.initialBuy;
+}
 
 function walletIdentity(provider, info = {}) {
   const rdns = String(info.rdns || "").toLowerCase();
@@ -188,13 +226,12 @@ async function connectWallet() {
   return walletAddress;
 }
 
-function selectProvider(button) {
+async function selectProvider(button) {
+  if (selected && selected !== button) captureProviderDraft();
   providers.forEach((item) => item.classList.remove("active")); button.classList.add("active"); selected = button;
   const providerId = button.dataset.provider;
   const content = providerContent[providerId];
   document.body.dataset.theme = providerId;
-  walletAddress = ""; walletType = ""; evmProvider = null; evmWalletName = ""; document.querySelectorAll("[data-wallet]").forEach((item) => { item.textContent = "Connect wallet"; });
-  const providerFee = Number(button.dataset.fee);
   $("#networkName").textContent = button.dataset.chain; $("#routeName").textContent = button.dataset.name; $("#settlement").textContent = button.dataset.chain + " settlement";
   $("#routeTone").textContent = button.dataset.tone;
   $("#routeHeadline").textContent = content.headline;
@@ -204,7 +241,7 @@ function selectProvider(button) {
   $("#formHint").textContent = content.hint;
   $("#sideLogo").src = content.logo;
   $("#sideLogo").alt = `${button.dataset.name} logo`;
-  $("#providerFee").textContent = moneyBps(providerFee); $("#totalFee").textContent = moneyBps(providerFee);
+  renderProviderCosts(providerId);
   $("#stonkOptions").hidden = button.dataset.provider !== "stonkfun";
   $("#pumpOptions").hidden = button.dataset.provider !== "pumpfun";
   $("#ponsOptions").hidden = button.dataset.provider !== "pons";
@@ -215,7 +252,8 @@ function selectProvider(button) {
   if (providerId === "stonkfun") $("#initialBuy").max = "50";
   $("#initialBuy").value = providerId === "pons" ? "0.75" : "0";
   $("#initialBuy").disabled = ["pumpfun", "ember"].includes(providerId);
-  loadQuote(); loadPairs();
+  await Promise.all([loadQuote(), loadPairs()]);
+  restoreProviderDraft(providerId);
 }
 
 async function loadQuote() {
@@ -223,8 +261,8 @@ async function loadQuote() {
   try {
     const response = await fetch(`${apiUrl}/v1/quote?provider=${selected.dataset.provider}`); if (!response.ok) return;
     const quote = await response.json();
-    $("#providerFee").textContent = moneyBps(quote.providerFeeBps); $("#platformFee").textContent = moneyBps(quote.platformFeeBps); $("#totalFee").textContent = moneyBps(quote.totalFeeBps);
-    $("#feeDisclosure").textContent = selected.dataset.provider === "flap" ? "Anything adds 0%. Flap network gas and your selected token tax still apply." : selected.dataset.provider === "ember" ? "Anything adds 0%. Ember’s selected trade tax follows its live fee split." : "Anything is free to use. Only the selected provider and network costs apply.";
+    $("#platformFee").textContent = moneyBps(quote.platformFeeBps || 0);
+    renderProviderCosts();
   } catch {}
 }
 
@@ -237,11 +275,13 @@ function normalizePairs(data) {
   })) : [];
 }
 async function loadPairs() {
+  const providerId = selected.dataset.provider;
   const select = $("#pairSelect"); select.innerHTML = '<option value="">Loading launch pairs…</option>';
   try {
-    const response = await fetch(`${apiUrl}/v1/pairs?provider=${selected.dataset.provider}`); const data = await response.json(); if (!response.ok) throw new Error(data.error);
+    const response = await fetch(`${apiUrl}/v1/pairs?provider=${providerId}`); const data = await response.json(); if (!response.ok) throw new Error(data.error);
+    if (selected.dataset.provider !== providerId) return;
     const pairs = normalizePairs(data); select.innerHTML = pairs.map((pair) => `<option value="${String(pair.value).replaceAll('"', '&quot;')}" data-decimals="${pair.decimals}">${pair.label}</option>`).join("") || '<option value="">Default provider pair</option>';
-  } catch { select.innerHTML = '<option value="">Provider default</option>'; }
+  } catch { if (selected.dataset.provider === providerId) select.innerHTML = '<option value="">Provider default</option>'; }
 }
 
 async function checkApi() {
@@ -249,11 +289,30 @@ async function checkApi() {
   catch { $("#apiStatus").textContent = "Interface mode"; }
 }
 
+function setLaunchMode(mode) {
+  launchMode = mode;
+  document.querySelectorAll(".mode-button").forEach((button) => button.classList.toggle("active", button.dataset.mode === mode));
+  $("#multiPicker").hidden = mode !== "multi";
+  $("#reviewButtonText").textContent = mode === "multi" ? "Review multi-launch" : "Review launch";
+  if (mode === "multi") updateMultiSelection();
+}
+
+function updateMultiSelection() {
+  const checked = currentMultiIds();
+  document.querySelectorAll(".multi-options input").forEach((input) => { input.disabled = checked.length >= 4 && !input.checked; });
+  $("#multiStatus").textContent = checked.length === 4 ? "4 of 4 selected · ready to review" : `${checked.length} of 4 selected`;
+  $("#multiStatus").classList.toggle("ready", checked.length === 4);
+}
+
 providers.forEach((button) => button.addEventListener("click", () => selectProvider(button)));
+document.querySelectorAll(".mode-button").forEach((button) => button.addEventListener("click", () => setLaunchMode(button.dataset.mode)));
+document.querySelectorAll(".multi-options input").forEach((input) => input.addEventListener("change", updateMultiSelection));
 document.querySelectorAll("[data-wallet]").forEach((button) => button.addEventListener("click", async () => { try { await connectWallet(); } catch (error) { showToast(error.message); } }));
 $("#closeWalletChooser").addEventListener("click", () => closeWalletChooser());
 $("#walletChooserBackdrop").addEventListener("click", () => closeWalletChooser());
-$("#emberFee").addEventListener("change", (event) => { const fee = Number(event.target.value); $("#providerFee").textContent = moneyBps(fee); $("#totalFee").textContent = moneyBps(fee); selected.dataset.fee = String(fee); });
+$("#emberFee").addEventListener("change", () => renderProviderCosts());
+$("#flapBuyTax").addEventListener("change", () => renderProviderCosts());
+$("#flapSellTax").addEventListener("change", () => renderProviderCosts());
 
 $("#assetImage").addEventListener("change", (event) => {
   const file = event.target.files[0]; if (!file) return;
@@ -261,12 +320,61 @@ $("#assetImage").addEventListener("change", (event) => {
   const reader = new FileReader(); reader.onload = () => { imageData = String(reader.result); $("#imagePreview").src = imageData; $("#imagePreview").style.display = "block"; $("#uploadText").style.display = "none"; }; reader.readAsDataURL(file);
 });
 
+function multiReadiness(ids) {
+  const issues = [];
+  if (ids.some((id) => ["stonkfun", "flap", "ember"].includes(id)) && !imageData) issues.push("add a token image");
+  if (ids.includes("pumpfun") && (!$("#pumpImageUrl").value.trim() || !$("#xUrl").value.trim())) issues.push("complete Pump.fun’s X post and public image URLs");
+  if (ids.includes("pons") && !$("#publicLogoUrl").value.trim()) issues.push("add Pons’ public logo URL");
+  return issues;
+}
+
+function renderLaunchQueue(ids) {
+  const queue = $("#launchQueue"); queue.replaceChildren();
+  ids.forEach((id, index) => {
+    const button = providers.find((item) => item.dataset.provider === id);
+    const row = document.createElement("article"); row.dataset.queueProvider = id;
+    const logo = document.createElement("img"); logo.src = providerContent[id].logo; logo.alt = "";
+    const copy = document.createElement("span"); const name = document.createElement("b"); const network = document.createElement("small");
+    name.textContent = button.dataset.name; network.textContent = button.dataset.chain; copy.append(name, network);
+    const status = document.createElement("i"); status.textContent = `${index + 1}`; status.dataset.queueStatus = id;
+    row.append(logo, copy, status); queue.append(row);
+  });
+}
+
+function updateQueueStatus(id, state, detail = "") {
+  const row = document.querySelector(`[data-queue-provider="${id}"]`); if (!row) return;
+  row.dataset.state = state;
+  const status = row.querySelector(`[data-queue-status="${id}"]`);
+  status.textContent = state === "running" ? "Waiting" : state === "success" ? "Done" : state === "failed" ? "Failed" : status.textContent;
+  status.title = detail;
+}
+
 $("#launchForm").addEventListener("submit", (event) => {
-  event.preventDefault(); const ticker = $("#ticker").value.trim().toUpperCase();
-  $("#summaryName").textContent = $("#marketName").value.trim(); $("#summaryTicker").textContent = "$" + ticker; $("#summaryLogo").src = providerContent[selected.dataset.provider].logo; $("#summaryLogo").alt = `${selected.dataset.name} logo`;
-  $("#summaryProvider").textContent = selected.dataset.name; $("#summaryRoute").textContent = selected.dataset.name; $("#summaryNetwork").textContent = selected.dataset.chain;
-  $("#summaryBuy").textContent = $("#initialBuy").value || "0"; $("#summaryFee").textContent = $("#totalFee").textContent;
-  $("#launchNow").textContent = `Connect & launch on ${selected.dataset.name}`; $("#intentMessage").textContent = "Your wallet will show the final network transaction before anything is submitted.";
+  event.preventDefault(); captureProviderDraft();
+  const ticker = $("#ticker").value.trim().toUpperCase();
+  $("#summaryName").textContent = $("#marketName").value.trim(); $("#summaryTicker").textContent = "$" + ticker;
+  if (launchMode === "multi") {
+    const ids = currentMultiIds().sort((a, b) => (["stonkfun", "pumpfun", "ember"].includes(a) ? 0 : 1) - (["stonkfun", "pumpfun", "ember"].includes(b) ? 0 : 1));
+    if (ids.length !== 4) { $("#multiStatus").textContent = "Select exactly four launchpads first."; showToast("Choose exactly four launchpads."); return; }
+    const issues = multiReadiness(ids);
+    if (issues.length) { const message = `Before multi-launch: ${issues.join("; ")}.`; $("#multiStatus").textContent = message; showToast(message); return; }
+    activeMultiIds = ids; multiResults.clear(); renderLaunchQueue(ids);
+    $("#reviewTitle").textContent = "Review 4 launches";
+    $("#summaryLogo").src = providerContent[ids[0]].logo; $("#summaryLogo").alt = "Selected launchpads";
+    $("#summaryProvider").textContent = "4 launchpads";
+    $("#singleSummary").hidden = true; $("#launchQueue").hidden = false;
+    $("#riskNote").textContent = "One button starts the queue, but every network still asks for its own wallet approval. Successful launches cannot be rolled back if another rail fails.";
+    $("#launchNow").textContent = "Start 4-launch sequence";
+    $("#intentMessage").textContent = "Keep this window open while the four provider transactions are prepared.";
+  } else {
+    $("#reviewTitle").textContent = "Review launch";
+    $("#summaryLogo").src = providerContent[selected.dataset.provider].logo; $("#summaryLogo").alt = `${selected.dataset.name} logo`;
+    $("#summaryProvider").textContent = selected.dataset.name; $("#summaryRoute").textContent = selected.dataset.name; $("#summaryNetwork").textContent = selected.dataset.chain;
+    $("#summaryBuy").textContent = $("#initialBuy").value || "0"; $("#summaryFee").textContent = `${$("#providerFee").textContent} · Anything 0%`;
+    $("#singleSummary").hidden = false; $("#launchQueue").hidden = true;
+    $("#riskNote").textContent = "This creates an on-chain asset. Verify every amount and address in your wallet before signing; transactions cannot be reversed.";
+    $("#launchNow").textContent = `Connect & launch on ${selected.dataset.name}`; $("#intentMessage").textContent = "Your wallet will show the final network transaction before anything is submitted.";
+  }
   $("#drawer").classList.add("open"); $("#drawer").setAttribute("aria-hidden", "false");
 });
 function closeDrawer() { $("#drawer").classList.remove("open"); $("#drawer").setAttribute("aria-hidden", "true"); }
@@ -377,10 +485,44 @@ async function launchEmber() {
   return { message: `Ember token live${result.mint ? ` · ${shortAddress(result.mint)}` : ""}.`, url: result.mint || result.pool ? `https://embercurve.fun/t/${result.mint || result.pool}` : undefined };
 }
 
+async function launchCurrentProvider() {
+  return selected.dataset.provider === "stonkfun" ? launchStonk() : selected.dataset.provider === "pumpfun" ? launchPump() : selected.dataset.provider === "pons" ? launchPons() : selected.dataset.provider === "flap" ? launchFlap() : launchEmber();
+}
+
+async function launchProviderById(id) {
+  const providerButton = providers.find((item) => item.dataset.provider === id);
+  await selectProvider(providerButton);
+  return launchCurrentProvider();
+}
+
 $("#launchNow").addEventListener("click", async () => {
-  const button = $("#launchNow"); button.disabled = true; button.textContent = "Waiting for wallet…"; $("#intentMessage").textContent = "Do not close this window while the provider prepares your transaction.";
+  const button = $("#launchNow"); button.disabled = true;
+  if (launchMode === "multi") {
+    let successCount = [...multiResults.values()].filter((result) => result.ok).length;
+    const failures = [];
+    for (let index = 0; index < activeMultiIds.length; index++) {
+      const id = activeMultiIds[index];
+      if (multiResults.get(id)?.ok) continue;
+      const providerButton = providers.find((item) => item.dataset.provider === id);
+      updateQueueStatus(id, "running"); button.textContent = `Approve ${index + 1} of ${activeMultiIds.length}: ${providerButton.dataset.name}`;
+      $("#intentMessage").textContent = `Preparing ${providerButton.dataset.name}. Confirm only after checking the wallet network and amount.`;
+      try {
+        const result = await launchProviderById(id); multiResults.set(id, { ok: true, result }); successCount++; updateQueueStatus(id, "success", result.message);
+      } catch (error) {
+        const message = error.message || "Launch failed."; multiResults.set(id, { ok: false, message }); failures.push(`${providerButton.dataset.name}: ${message}`); updateQueueStatus(id, "failed", message);
+      }
+    }
+    if (successCount === activeMultiIds.length) {
+      $("#intentMessage").textContent = "All four launches were submitted successfully."; button.textContent = "4 launches submitted"; showToast("All four launches submitted.");
+    } else {
+      $("#intentMessage").textContent = `${successCount} of ${activeMultiIds.length} succeeded. ${failures.join(" ")}`;
+      button.textContent = "Retry failed launches"; button.disabled = false; showToast(`${successCount} of ${activeMultiIds.length} launches succeeded.`);
+    }
+    return;
+  }
+  button.textContent = "Waiting for wallet…"; $("#intentMessage").textContent = "Do not close this window while the provider prepares your transaction.";
   try {
-    const result = selected.dataset.provider === "stonkfun" ? await launchStonk() : selected.dataset.provider === "pumpfun" ? await launchPump() : selected.dataset.provider === "pons" ? await launchPons() : selected.dataset.provider === "flap" ? await launchFlap() : await launchEmber();
+    const result = await launchCurrentProvider();
     $("#intentMessage").innerHTML = result.url ? `${result.message} <a href="${result.url}" target="_blank" rel="noopener">View transaction ↗</a>` : result.message;
     button.textContent = "Launch submitted"; showToast("Launch submitted successfully.");
   } catch (error) { $("#intentMessage").textContent = error.message || "Launch failed."; button.textContent = "Try launch again"; button.disabled = false; }

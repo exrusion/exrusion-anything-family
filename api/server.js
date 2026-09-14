@@ -37,6 +37,8 @@ const providers = {
     network: "Solana",
     categories: ["stocks", "rewards"],
     providerFeeBps: 100,
+    feeType: "default_trade_fee",
+    feeDisplay: "1.00% default trading fee; launch charge returned by live quote",
     execution: "wallet_signed",
   },
   pumpfun: {
@@ -44,7 +46,9 @@ const providers = {
     name: "Pump.fun",
     network: "Solana",
     categories: ["memes", "culture"],
-    providerFeeBps: 100,
+    providerFeeBps: 125,
+    feeType: "bonding_curve_trade_fee",
+    feeDisplay: "1.25% bonding-curve trading fee; no token creation fee",
     execution: pumpAdapterUrl && pumpAdapterSecret ? "server_adapter" : "configuration_required",
   },
   pons: {
@@ -52,7 +56,9 @@ const providers = {
     name: "Pons",
     network: "Robinhood Chain",
     categories: ["creator", "paired-markets"],
-    providerFeeBps: 125,
+    providerFeeBps: null,
+    feeType: "native_launch_fee",
+    feeDisplay: "0.0005 ETH launch fee plus gas; trading fees follow live configuration",
     execution: "wallet_signed",
   },
   flap: {
@@ -60,7 +66,9 @@ const providers = {
     name: "Flap",
     network: "BNB Chain",
     categories: ["memes", "tax-tokens", "rwa-pairs"],
-    providerFeeBps: 0,
+    providerFeeBps: null,
+    feeType: "selected_token_tax",
+    feeDisplay: "Selected buy/sell tax plus initial buy and gas",
     execution: "wallet_signed",
   },
   ember: {
@@ -69,6 +77,8 @@ const providers = {
     network: "Solana",
     categories: ["stocks", "fee-modules", "meteora"],
     providerFeeBps: 200,
+    feeType: "selected_trade_tax",
+    feeDisplay: "2.00% default selected trade tax; 1%, 2% and 3% available",
     execution: "wallet_signed",
   },
 };
@@ -110,14 +120,17 @@ function readBody(req) {
 function quote(providerId) {
   const provider = providers[providerId];
   if (!provider) return null;
+  const percentageFee = Number.isFinite(provider.providerFeeBps) ? provider.providerFeeBps : null;
   return {
     provider: provider.id,
-    providerFeeBps: provider.providerFeeBps,
+    providerFeeBps: percentageFee,
+    feeType: provider.feeType,
+    feeDisplay: provider.feeDisplay,
     platformFeeBps,
-    totalFeeBps: provider.providerFeeBps + platformFeeBps,
+    totalFeeBps: percentageFee == null ? null : percentageFee + platformFeeBps,
     configuredPlatformFeeBps,
     platformRecipientConfigured: false,
-    disclosure: "Anything charges no platform fee. Only provider and network costs apply.",
+    disclosure: "Provider and network costs apply. Anything takes no cut.",
   };
 }
 
