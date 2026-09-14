@@ -5,9 +5,8 @@ import { fileURLToPath } from "node:url";
 
 const port = Number(process.env.PORT || 8080);
 const startedAt = new Date().toISOString();
-const configuredPlatformFeeBps = Math.max(0, Math.min(1000, Number(process.env.PLATFORM_FEE_BPS || 75)));
-const platformTreasuryAddress = String(process.env.PLATFORM_TREASURY_ADDRESS || "").trim();
-const platformFeeBps = platformTreasuryAddress ? configuredPlatformFeeBps : 0;
+const configuredPlatformFeeBps = 0;
+const platformFeeBps = 0;
 const executionMode = process.env.EXECUTION_MODE === "live" ? "live" : "intent-only";
 const stonkApiBase = String(process.env.STONK_API_BASE || "https://www.stonkfun.xyz/api/public/v1").replace(/\/$/, "");
 const pumpAdapterUrl = String(process.env.PUMPFUN_ADAPTER_URL || "").replace(/\/$/, "");
@@ -115,9 +114,8 @@ function quote(providerId) {
     platformFeeBps,
     totalFeeBps: provider.providerFeeBps + platformFeeBps,
     configuredPlatformFeeBps,
-    platformRecipientConfigured: Boolean(platformTreasuryAddress),
-    disclosure:
-      "The platform fee is disclosed before signing. Creator proceeds are not redirected to the platform.",
+    platformRecipientConfigured: false,
+    disclosure: "Anything charges no platform fee. Only provider and network costs apply.",
   };
 }
 
