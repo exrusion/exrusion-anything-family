@@ -90,6 +90,7 @@ const providerCosts = {
 
 const PONS_FACTORY = "0x7eD598BcEf8bd9Edd8C97A195C6d13f40801EC7e";
 const PONS_BUY_HELPER = "0xe33E9E479dF8802cb0866d5d05258bEc4cF62948";
+const PONS_DISTRIBUTOR_FACTORY = "0x70e95CC5f03DB2906081E7a8D16e4C4209291507";
 const ZERO = "0x0000000000000000000000000000000000000000";
 const MAGIC_DIVIDEND_SELF = "0xfEEDFEEDfeEDFEedFEEdFEEDFeEdfEEdFeEdFEEd";
 const RH_RPC = "https://rpc.mainnet.chain.robinhood.com";
@@ -102,12 +103,17 @@ const factoryAbi = [
   { type: "function", name: "canLaunch", stateMutability: "view", inputs: [{ name: "launcher", type: "address" }], outputs: [{ type: "bool" }] },
   { type: "function", name: "approvedPairTokens", stateMutability: "view", inputs: [{ name: "pairToken", type: "address" }], outputs: [{ type: "bool" }] },
   { type: "function", name: "previewLaunchEconomics", stateMutability: "view", inputs: [{ name: "launchConfigId", type: "uint256" }, { name: "pairToken", type: "address" }], outputs: [{ type: "bytes32" }] },
+  { type: "function", name: "transferCreatorFeeRecipient", stateMutability: "nonpayable", inputs: [{ name: "token", type: "address" }, { name: "newRecipient", type: "address" }], outputs: [] },
   { type: "function", name: "getLaunchConfig", stateMutability: "view", inputs: [{ name: "id", type: "uint256" }], outputs: [{ name: "", type: "tuple", components: [{ name: "supply", type: "uint256" }, { name: "curveFeeBps", type: "uint256" }, { name: "phantomQuote", type: "uint256" }, { name: "graduationThreshold", type: "uint256" }, { name: "poolFee", type: "uint24" }, { name: "tickSpacing", type: "int24" }, { name: "enabled", type: "bool" }] }] },
   { type: "function", name: "launchToken", stateMutability: "payable", inputs: [{ name: "params", type: "tuple", components: [{ name: "name", type: "string" }, { name: "symbol", type: "string" }, { name: "logo", type: "string" }, { name: "description", type: "string" }, { name: "socials", type: "tuple", components: [{ name: "twitter", type: "string" }, { name: "telegram", type: "string" }, { name: "discord", type: "string" }, { name: "website", type: "string" }, { name: "farcaster", type: "string" }] }, { name: "creatorFeeRecipient", type: "address" }, { name: "creatorTaxBps", type: "uint16" }, { name: "buybackEnabled", type: "bool" }, { name: "expectedEconomics", type: "bytes32" }, { name: "salt", type: "bytes32" }] }, { name: "launchConfigId", type: "uint256" }, { name: "pairToken", type: "address" }, { name: "snipeTaxExemptions", type: "address[]" }], outputs: [{ name: "token", type: "address" }, { name: "curve", type: "address" }] },
   { type: "event", name: "TokenLaunched", anonymous: false, inputs: [{ name: "token", type: "address", indexed: true }, { name: "curve", type: "address", indexed: true }, { name: "deployer", type: "address", indexed: true }, { name: "pairToken", type: "address", indexed: false }, { name: "launchConfigId", type: "uint256", indexed: false }, { name: "graduationThreshold", type: "uint256", indexed: false }] },
 ];
 const ponsLaunchInput = factoryAbi.find((item) => item.name === "launchToken").inputs[0];
 const ponsBuyHelperAbi = [{ type: "function", name: "launchAndBuy", stateMutability: "payable", inputs: [ponsLaunchInput, { name: "launchConfigId", type: "uint256" }, { name: "pairToken", type: "address" }, { name: "quoteIn", type: "uint256" }, { name: "minTokensOut", type: "uint256" }, { name: "recipient", type: "address" }, { name: "snipeTaxExemptions", type: "address[]" }], outputs: [{ name: "token", type: "address" }, { name: "curve", type: "address" }, { name: "tokensOut", type: "uint256" }] }];
+const ponsDistributorAbi = [
+  { type: "function", name: "distributorOf", stateMutability: "view", inputs: [{ name: "token", type: "address" }], outputs: [{ type: "address" }] },
+  { type: "function", name: "createFor", stateMutability: "nonpayable", inputs: [{ name: "token", type: "address" }], outputs: [{ type: "address" }] },
+];
 const flapPortalAbi = [{ type: "function", name: "newTokenV6", stateMutability: "payable", inputs: [{ name: "params", type: "tuple", components: [
   { name: "name", type: "string" }, { name: "symbol", type: "string" }, { name: "meta", type: "string" }, { name: "dexThresh", type: "uint8" }, { name: "salt", type: "bytes32" }, { name: "migratorType", type: "uint8" }, { name: "quoteToken", type: "address" }, { name: "quoteAmt", type: "uint256" }, { name: "beneficiary", type: "address" }, { name: "permitData", type: "bytes" }, { name: "extensionID", type: "bytes32" }, { name: "extensionData", type: "bytes" }, { name: "dexId", type: "uint8" }, { name: "lpFeeProfile", type: "uint8" }, { name: "buyTaxRate", type: "uint16" }, { name: "sellTaxRate", type: "uint16" }, { name: "taxDuration", type: "uint64" }, { name: "antiFarmerDuration", type: "uint64" }, { name: "mktBps", type: "uint16" }, { name: "deflationBps", type: "uint16" }, { name: "dividendBps", type: "uint16" }, { name: "lpBps", type: "uint16" }, { name: "minimumShareBalance", type: "uint256" }, { name: "dividendToken", type: "address" }, { name: "commissionReceiver", type: "address" }, { name: "tokenVersion", type: "uint8" },
 ]}], outputs: [{ name: "token", type: "address" }] }];
@@ -484,6 +490,19 @@ async function launchPons() {
   }
   const receipt = await publicClient.waitForTransactionReceipt({ hash, confirmations: 1, timeout: 180000 }); if (receipt.status !== "success") throw new Error("Pons transaction reverted.");
   let token = ""; for (const log of receipt.logs) { if (log.address.toLowerCase() !== PONS_FACTORY.toLowerCase()) continue; try { token = String(decodeEventLog({ abi: factoryAbi, eventName: "TokenLaunched", data: log.data, topics: log.topics }).args.token); break; } catch {} }
+  if ($("#ponsHolderShare").checked) {
+    if (!token) throw new Error("Pons launched, but the token address was not found for holder-sharing setup. Use the transaction link to finish on Pons.");
+    $("#intentMessage").textContent = "Pons confirmation 2 of 3: deploy the holder distributor…";
+    let distributor = await publicClient.readContract({ address: PONS_DISTRIBUTOR_FACTORY, abi: ponsDistributorAbi, functionName: "distributorOf", args: [token] });
+    if (distributor === ZERO) {
+      const deployHash = await walletClient.writeContract({ address: PONS_DISTRIBUTOR_FACTORY, abi: ponsDistributorAbi, functionName: "createFor", args: [token] });
+      await publicClient.waitForTransactionReceipt({ hash: deployHash, confirmations: 1, timeout: 180000 });
+      distributor = await publicClient.readContract({ address: PONS_DISTRIBUTOR_FACTORY, abi: ponsDistributorAbi, functionName: "distributorOf", args: [token] });
+    }
+    $("#intentMessage").textContent = "Pons confirmation 3 of 3: route creator fees to holders…";
+    const routeHash = await walletClient.writeContract({ address: PONS_FACTORY, abi: factoryAbi, functionName: "transferCreatorFeeRecipient", args: [token, distributor] });
+    await publicClient.waitForTransactionReceipt({ hash: routeHash, confirmations: 1, timeout: 180000 });
+  }
   return { message: `Pons launch confirmed${token ? ` · ${shortAddress(token)}` : ""}.`, url: `https://robinhoodchain.blockscout.com/tx/${hash}` };
 }
 
