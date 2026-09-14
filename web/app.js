@@ -10,6 +10,44 @@ let imageData = "";
 let walletAddress = "";
 let walletType = "";
 
+const providerContent = {
+  stonkfun: {
+    headline: "Pair a coin with the market.",
+    description: "Use StonkFun’s stock, commodity and custom pairs with creator or holder rewards.",
+    mechanic: "Wallet-signed API",
+    hint: "Built for paired markets",
+    logo: "S",
+  },
+  pumpfun: {
+    headline: "Make the meme. Launch the coin.",
+    description: "Route a culture coin through the secured Pump.fun custom-pair launch adapter.",
+    mechanic: "Secured launch adapter",
+    hint: "Fast meme launch",
+    logo: "P",
+  },
+  pons: {
+    headline: "Creators meet onchain markets.",
+    description: "Launch a paired market on Robinhood Chain and direct creator fees to your connected wallet.",
+    mechanic: "Direct factory contract",
+    hint: "Creator-first market",
+    logo: "P",
+  },
+  flap: {
+    headline: "Program the token. Ship on BNB.",
+    description: "Create a Flap Tax Token V3 with selectable buy and sell tax plus a live BNB or RWA pair.",
+    mechanic: "BNB Portal V6",
+    hint: "Programmable tax token",
+    logo: "✣",
+  },
+  ember: {
+    headline: "Send every fee somewhere useful.",
+    description: "Launch on a Meteora curve and distribute the creator side to holders in the selected pair token.",
+    mechanic: "Meteora DBC route",
+    hint: "Fee-powered market",
+    logo: "●",
+  },
+};
+
 const PONS_FACTORY = "0x7eD598BcEf8bd9Edd8C97A195C6d13f40801EC7e";
 const ZERO = "0x0000000000000000000000000000000000000000";
 const RH_RPC = "https://rpc.mainnet.chain.robinhood.com";
@@ -57,20 +95,30 @@ async function connectWallet() {
 
 function selectProvider(button) {
   providers.forEach((item) => item.classList.remove("active")); button.classList.add("active"); selected = button;
+  const providerId = button.dataset.provider;
+  const content = providerContent[providerId];
+  document.body.dataset.theme = providerId;
   walletAddress = ""; walletType = ""; document.querySelectorAll("[data-wallet]").forEach((item) => { item.textContent = "Connect wallet"; });
   const providerFee = Number(button.dataset.fee);
-  $("#networkName").textContent = button.dataset.chain; $("#routeName").textContent = button.dataset.name + " selected"; $("#settlement").textContent = button.dataset.chain + " settlement";
+  $("#networkName").textContent = button.dataset.chain; $("#routeName").textContent = button.dataset.name; $("#settlement").textContent = button.dataset.chain + " settlement";
+  $("#routeTone").textContent = button.dataset.tone;
+  $("#routeHeadline").textContent = content.headline;
+  $("#routeDescription").textContent = content.description;
+  $("#heroNetwork").textContent = button.dataset.chain;
+  $("#heroMechanic").textContent = content.mechanic;
+  $("#formHint").textContent = content.hint;
+  $("#sideLogo").textContent = content.logo;
   $("#providerFee").textContent = moneyBps(providerFee); $("#totalFee").textContent = moneyBps(providerFee);
   $("#stonkOptions").hidden = button.dataset.provider !== "stonkfun";
   $("#pumpOptions").hidden = button.dataset.provider !== "pumpfun";
   $("#ponsOptions").hidden = button.dataset.provider !== "pons";
   $("#flapOptions").hidden = button.dataset.provider !== "flap";
   $("#emberOptions").hidden = button.dataset.provider !== "ember";
-  $("#initialBuyLabel").querySelector("span").textContent = button.dataset.provider === "stonkfun" ? "Dev buy %" : button.dataset.provider === "pons" ? "Creator tax %" : button.dataset.provider === "flap" ? "Initial buy (BNB)" : button.dataset.provider === "ember" ? "Initial buy (SOL)" : "First buy";
+  $("#initialBuyLabel").querySelector("span").textContent = providerId === "stonkfun" ? "Dev buy %" : providerId === "pons" ? "Creator tax %" : providerId === "flap" ? "Initial buy" : providerId === "ember" ? "Initial buy unavailable" : "First buy unavailable";
   $("#initialBuy").removeAttribute("max");
-  if (button.dataset.provider === "stonkfun") $("#initialBuy").max = "50";
-  $("#initialBuy").value = button.dataset.provider === "pons" ? "0.75" : "0";
-  $("#initialBuy").disabled = ["pumpfun", "ember"].includes(button.dataset.provider);
+  if (providerId === "stonkfun") $("#initialBuy").max = "50";
+  $("#initialBuy").value = providerId === "pons" ? "0.75" : "0";
+  $("#initialBuy").disabled = ["pumpfun", "ember"].includes(providerId);
   loadQuote(); loadPairs();
 }
 
