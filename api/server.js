@@ -10,6 +10,8 @@ const executionMode = process.env.EXECUTION_MODE === "live" ? "live" : "intent-o
 const stonkApiBase = String(process.env.STONK_API_BASE || "https://www.stonkfun.xyz/api/public/v1").replace(/\/$/, "");
 const pumpAdapterUrl = String(process.env.PUMPFUN_ADAPTER_URL || "").replace(/\/$/, "");
 const pumpAdapterSecret = String(process.env.PUMPFUN_ADAPTER_SECRET || "");
+const emberApiBase = String(process.env.EMBER_API_BASE || "https://embercurve.fun").replace(/\/$/, "");
+const flapApiBase = String(process.env.FLAP_API_BASE || "https://flap.sh").replace(/\/$/, "");
 const allowedOrigins = new Set(
   (process.env.ALLOWED_ORIGINS || "https://anything.family,http://localhost:3000")
     .split(",")
@@ -40,6 +42,22 @@ const providers = {
     network: "Robinhood Chain",
     categories: ["creator", "paired-markets"],
     providerFeeBps: 125,
+    execution: "wallet_signed",
+  },
+  flap: {
+    id: "flap",
+    name: "Flap",
+    network: "BNB Chain",
+    categories: ["memes", "tax-tokens", "rwa-pairs"],
+    providerFeeBps: 0,
+    execution: "wallet_signed",
+  },
+  ember: {
+    id: "ember",
+    name: "Ember",
+    network: "Solana",
+    categories: ["stocks", "fee-modules", "meteora"],
+    providerFeeBps: 200,
     execution: "wallet_signed",
   },
 };
@@ -125,6 +143,14 @@ function validateIntent(body) {
   return errors;
 }
 
+function imageBlob(dataUrl) {
+  const match = String(dataUrl || "").match(/^data:(image\/[a-zA-Z0-9.+-]+);base64,([a-zA-Z0-9+/=]+)$/);
+  if (!match) throw new Error("A valid image upload is required.");
+  const bytes = Buffer.from(match[2], "base64");
+  if (!bytes.length || bytes.length > 4_500_000) throw new Error("Image must be smaller than 4.5 MB.");
+  return { blob: new Blob([bytes], { type: match[1] }), type: match[1] };
+}
+
 const server = http.createServer(async (req, res) => {
   const origin = req.headers.origin;
   if (req.method === "OPTIONS") {
@@ -175,9 +201,44 @@ const server = http.createServer(async (req, res) => {
       if (provider === "stonkfun") return json(res, 200, await upstream(`${stonkApiBase}/pairs?launchable=true`), origin);
       if (provider === "pumpfun" && pumpAdapterUrl) return json(res, 200, await upstream(`${pumpAdapterUrl}/pairs`), origin);
       if (provider === "pons") return json(res, 200, { pairs: [{ symbol: "ETH", address: "0x0000000000000000000000000000000000000000", name: "Native ETH" }] }, origin);
+      if (provider === "ember") return json(res, 200, await upstream(`${emberApiBase}/api/solana/quotes`), origin);
+      if (provider === "flap") {
+        const catalog = await upstream(`${flapApiBase}/api/launch/quote-tokens`);
+        const bnb = catalog.chains?.find((chain) => Number(chain.chainId) === 56);
+        return json(res, 200, { pairs: bnb?.quoteTokens || [] }, origin);
+      }
       return json(res, 400, { error: "provider_not_configured" }, origin);
     } catch (error) {
       return json(res, error.status || 502, error.body || { error: error.message || "provider_unavailable" }, origin);
+    }
+  }
+
+  if (req.method === "POST" && url.pathname === "/v1/metadata/flap") {
+    try {
+      const body = await readBody(req);
+      const image = imageBlob(body.logo);
+      const form = new FormData();
+      form.append("operations", JSON.stringify({ query: "mutation Create($file: Upload!, $meta: MetadataInput!) { create(file: $file, meta: $meta) }", variables: { file: null, meta: { description: String(body.description || "").slice(0, 500), twitter: body.x || null, telegram: body.telegram || null, website: body.website || null, creator: body.creatorWallet || "0x0000000000000000000000000000000000000000" } } }));
+      form.append("map", JSON.stringify({ "0": ["variables.file"] }));
+      form.append("0", image.blob, `token.${image.type.split("/")[1] || "png"}`);
+      const result = await upstream("https://funcs.flap.sh/api/upload", { method: "POST", body: form });
+      return json(res, 200, { cid: result.data?.create || result.create }, origin);
+    } catch (error) {
+      return json(res, error.status || 502, error.body || { error: error.message || "flap_metadata_failed" }, origin);
+    }
+  }
+
+  if (req.method === "POST" && url.pathname === "/v1/metadata/ember") {
+    try {
+      const body = await readBody(req);
+      const image = imageBlob(body.logo);
+      const form = new FormData();
+      form.append("file", image.blob, `token.${image.type.split("/")[1] || "png"}`);
+      const uploaded = await upstream(`${emberApiBase}/api/upload/image`, { method: "POST", body: form });
+      const metadata = await upstream(`${emberApiBase}/api/upload/metadata`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ name: body.name, symbol: body.ticker, description: body.description || "", image: uploaded.url, website: body.website || "", x: body.x || "", telegram: body.telegram || "" }) });
+      return json(res, 200, { image: uploaded.url, uri: metadata.uri }, origin);
+    } catch (error) {
+      return json(res, error.status || 502, error.body || { error: error.message || "ember_metadata_failed" }, origin);
     }
   }
 
@@ -219,6 +280,20 @@ const server = http.createServer(async (req, res) => {
         return json(res, 200, { provider: "pumpfun", submitted: true, ...result }, origin);
       }
 
+      if (body.provider === "ember") {
+        if (!body.creatorWallet || !body.uri || !body.quoteMint) return json(res, 422, { error: "Wallet, metadata and launch pair are required." }, origin);
+        const result = await upstream(`${emberApiBase}/api/solana/launch`, {
+          method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({
+            action: "prepare", creatorWallet: body.creatorWallet, name: body.name.trim(), symbol: body.ticker.trim().toUpperCase(),
+            uri: body.uri, image: body.image, description: String(body.description || "").slice(0, 500), links: body.links || {},
+            quoteMint: body.quoteMint, feeBps: [100, 200, 300].includes(Number(body.feeBps)) ? Number(body.feeBps) : 200,
+            graduateUsd: [25000, 35000, 40000].includes(Number(body.graduateUsd)) ? Number(body.graduateUsd) : 35000,
+            mode: "holders", splits: [], holdersBps: 10000, payInQuote: true, addons: { shield: false, volatilityFee: false, airdropPct: 0 },
+          }),
+        });
+        return json(res, 200, { provider: "ember", ...(result.data || result) }, origin);
+      }
+
       return json(res, 422, { error: "Pons launches are signed directly in the connected wallet." }, origin);
     } catch (error) {
       return json(res, error.status || (error.message === "payload_too_large" ? 413 : 502), error.body || { error: error.message || "provider_request_failed" }, origin);
@@ -228,12 +303,21 @@ const server = http.createServer(async (req, res) => {
   if (req.method === "POST" && url.pathname === "/v1/launches/submit") {
     try {
       const body = await readBody(req);
-      if (body.provider !== "stonkfun") return json(res, 400, { error: "unsupported_provider" }, origin);
-      const result = await upstream(`${stonkApiBase}/launches/submit`, {
-        method: "POST", headers: { "content-type": "application/json" },
-        body: JSON.stringify({ signedQuote: body.signedQuote, signedTransaction: body.signedTransaction, logo: body.logo }),
-      });
-      return json(res, 200, { provider: "stonkfun", ...(result.data || result) }, origin);
+      if (body.provider === "stonkfun") {
+        const result = await upstream(`${stonkApiBase}/launches/submit`, {
+          method: "POST", headers: { "content-type": "application/json" },
+          body: JSON.stringify({ signedQuote: body.signedQuote, signedTransaction: body.signedTransaction, logo: body.logo }),
+        });
+        return json(res, 200, { provider: "stonkfun", ...(result.data || result) }, origin);
+      }
+      if (body.provider === "ember") {
+        const result = await upstream(`${emberApiBase}/api/solana/launch`, {
+          method: "POST", headers: { "content-type": "application/json" },
+          body: JSON.stringify({ action: "submit", launchId: body.launchId, signedTransaction: body.signedTransaction }),
+        });
+        return json(res, 200, { provider: "ember", ...(result.data || result) }, origin);
+      }
+      return json(res, 400, { error: "unsupported_provider" }, origin);
     } catch (error) {
       return json(res, error.status || 502, error.body || { error: error.message || "provider_request_failed" }, origin);
     }
