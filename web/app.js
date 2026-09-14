@@ -1,5 +1,5 @@
 import { Transaction } from "https://esm.sh/@solana/web3.js@1.98.4";
-import { createPublicClient, createWalletClient, custom, decodeEventLog, defineChain, http, keccak256, toHex } from "https://esm.sh/viem@2.37.3";
+import { createPublicClient, createWalletClient, custom, decodeEventLog, defineChain, getContractAddress, http, keccak256, parseUnits, toBytes, toHex } from "https://esm.sh/viem@2.37.3";
 
 const config = window.ANYTHING_CONFIG || {};
 const apiUrl = String(config.apiUrl || "").replace(/\/$/, "");
@@ -13,7 +13,11 @@ let walletType = "";
 const PONS_FACTORY = "0x7eD598BcEf8bd9Edd8C97A195C6d13f40801EC7e";
 const ZERO = "0x0000000000000000000000000000000000000000";
 const RH_RPC = "https://rpc.mainnet.chain.robinhood.com";
+const FLAP_PORTAL = "0xe2cE6ab80874Fa9Fa2aAE65D277Dd6B8e65C9De0";
+const FLAP_TAX_IMPL = "0x024f18294970B5c76c0691b87f138A0317156422";
+const BSC_RPC = "https://bsc-dataseed.binance.org/";
 const robinhoodChain = defineChain({ id: 4663, name: "Robinhood Chain", nativeCurrency: { name: "Ether", symbol: "ETH", decimals: 18 }, rpcUrls: { default: { http: [RH_RPC] } }, blockExplorers: { default: { name: "Blockscout", url: "https://robinhoodchain.blockscout.com" } } });
+const bnbChain = defineChain({ id: 56, name: "BNB Smart Chain", nativeCurrency: { name: "BNB", symbol: "BNB", decimals: 18 }, rpcUrls: { default: { http: [BSC_RPC] } }, blockExplorers: { default: { name: "BscScan", url: "https://bscscan.com" } } });
 const factoryAbi = [
   { type: "function", name: "launchFee", stateMutability: "view", inputs: [], outputs: [{ type: "uint256" }] },
   { type: "function", name: "launchConfigCount", stateMutability: "view", inputs: [], outputs: [{ type: "uint256" }] },
@@ -24,6 +28,10 @@ const factoryAbi = [
   { type: "function", name: "launchToken", stateMutability: "payable", inputs: [{ name: "params", type: "tuple", components: [{ name: "name", type: "string" }, { name: "symbol", type: "string" }, { name: "logo", type: "string" }, { name: "description", type: "string" }, { name: "socials", type: "tuple", components: [{ name: "twitter", type: "string" }, { name: "telegram", type: "string" }, { name: "discord", type: "string" }, { name: "website", type: "string" }, { name: "farcaster", type: "string" }] }, { name: "creatorFeeRecipient", type: "address" }, { name: "creatorTaxBps", type: "uint16" }, { name: "buybackEnabled", type: "bool" }, { name: "expectedEconomics", type: "bytes32" }, { name: "salt", type: "bytes32" }] }, { name: "launchConfigId", type: "uint256" }, { name: "pairToken", type: "address" }], outputs: [{ name: "token", type: "address" }, { name: "curve", type: "address" }] },
   { type: "event", name: "TokenLaunched", anonymous: false, inputs: [{ name: "token", type: "address", indexed: true }, { name: "curve", type: "address", indexed: true }, { name: "deployer", type: "address", indexed: true }, { name: "pairToken", type: "address", indexed: false }, { name: "launchConfigId", type: "uint256", indexed: false }, { name: "graduationThreshold", type: "uint256", indexed: false }] },
 ];
+const flapPortalAbi = [{ type: "function", name: "newTokenV6", stateMutability: "payable", inputs: [{ name: "params", type: "tuple", components: [
+  { name: "name", type: "string" }, { name: "symbol", type: "string" }, { name: "meta", type: "string" }, { name: "dexThresh", type: "uint8" }, { name: "salt", type: "bytes32" }, { name: "migratorType", type: "uint8" }, { name: "quoteToken", type: "address" }, { name: "quoteAmt", type: "uint256" }, { name: "beneficiary", type: "address" }, { name: "permitData", type: "bytes" }, { name: "extensionID", type: "bytes32" }, { name: "extensionData", type: "bytes" }, { name: "dexId", type: "uint8" }, { name: "lpFeeProfile", type: "uint8" }, { name: "buyTaxRate", type: "uint16" }, { name: "sellTaxRate", type: "uint16" }, { name: "taxDuration", type: "uint64" }, { name: "antiFarmerDuration", type: "uint64" }, { name: "mktBps", type: "uint16" }, { name: "deflationBps", type: "uint16" }, { name: "dividendBps", type: "uint16" }, { name: "lpBps", type: "uint16" }, { name: "minimumShareBalance", type: "uint256" }, { name: "dividendToken", type: "address" }, { name: "commissionReceiver", type: "address" }, { name: "tokenVersion", type: "uint8" },
+]}], outputs: [{ name: "token", type: "address" }] }];
+const erc20Abi = [{ type: "function", name: "allowance", stateMutability: "view", inputs: [{ name: "owner", type: "address" }, { name: "spender", type: "address" }], outputs: [{ type: "uint256" }] }, { type: "function", name: "approve", stateMutability: "nonpayable", inputs: [{ name: "spender", type: "address" }, { name: "amount", type: "uint256" }], outputs: [{ type: "bool" }] }];
 
 function moneyBps(value) { return (Number(value) / 100).toFixed(2) + "%"; }
 function shortAddress(value) { return value ? `${value.slice(0, 5)}…${value.slice(-4)}` : "Connect wallet"; }
@@ -32,7 +40,7 @@ function bytesToBase64(bytes) { let binary = ""; for (let i = 0; i < bytes.lengt
 function base64ToBytes(value) { return Uint8Array.from(atob(value), (char) => char.charCodeAt(0)); }
 
 async function connectWallet() {
-  if (selected.dataset.provider === "pons") {
+  if (["pons", "flap"].includes(selected.dataset.provider)) {
     if (!window.ethereum) throw new Error("Install an EVM wallet such as MetaMask.");
     const accounts = await window.ethereum.request({ method: "eth_requestAccounts" });
     walletAddress = accounts[0]; walletType = "evm";
@@ -56,8 +64,13 @@ function selectProvider(button) {
   $("#stonkOptions").hidden = button.dataset.provider !== "stonkfun";
   $("#pumpOptions").hidden = button.dataset.provider !== "pumpfun";
   $("#ponsOptions").hidden = button.dataset.provider !== "pons";
-  $("#initialBuyLabel").querySelector("span").textContent = button.dataset.provider === "stonkfun" ? "Dev buy %" : button.dataset.provider === "pons" ? "Creator tax %" : "First buy";
-  $("#initialBuy").value = button.dataset.provider === "stonkfun" ? "0" : button.dataset.provider === "pons" ? "0.75" : "0";
+  $("#flapOptions").hidden = button.dataset.provider !== "flap";
+  $("#emberOptions").hidden = button.dataset.provider !== "ember";
+  $("#initialBuyLabel").querySelector("span").textContent = button.dataset.provider === "stonkfun" ? "Dev buy %" : button.dataset.provider === "pons" ? "Creator tax %" : button.dataset.provider === "flap" ? "Initial buy (BNB)" : button.dataset.provider === "ember" ? "Initial buy (SOL)" : "First buy";
+  $("#initialBuy").removeAttribute("max");
+  if (button.dataset.provider === "stonkfun") $("#initialBuy").max = "50";
+  $("#initialBuy").value = button.dataset.provider === "pons" ? "0.75" : "0";
+  $("#initialBuy").disabled = ["pumpfun", "ember"].includes(button.dataset.provider);
   loadQuote(); loadPairs();
 }
 
@@ -67,7 +80,7 @@ async function loadQuote() {
     const response = await fetch(`${apiUrl}/v1/quote?provider=${selected.dataset.provider}`); if (!response.ok) return;
     const quote = await response.json();
     $("#providerFee").textContent = moneyBps(quote.providerFeeBps); $("#platformFee").textContent = moneyBps(quote.platformFeeBps); $("#totalFee").textContent = moneyBps(quote.totalFeeBps);
-    $("#feeDisclosure").textContent = quote.platformRecipientConfigured ? "The Anything fee is shown before signing; creator proceeds follow the selected provider." : "Anything fee is currently 0% until a treasury wallet is configured. Provider fees still apply.";
+    $("#feeDisclosure").textContent = selected.dataset.provider === "flap" ? "Flap charges BNB network gas and any selected token tax; Anything currently adds 0%." : selected.dataset.provider === "ember" ? "Ember’s selected trade tax follows its live fee split; Anything currently adds 0%." : quote.platformRecipientConfigured ? "The Anything fee is shown before signing; creator proceeds follow the selected provider." : "Anything fee is currently 0% until a treasury wallet is configured. Provider fees still apply.";
   } catch {}
 }
 
@@ -75,14 +88,15 @@ function normalizePairs(data) {
   const list = data.pairs || data.data?.pairs || data.data || [];
   return Array.isArray(list) ? list.map((item) => ({
     label: item.ticker ? `${item.ticker} — ${item.symbol || item.name || "Launch pair"}` : item.displayName || item.name || item.symbol || "Pair",
-    value: selected.dataset.provider === "pumpfun" ? item.ticker || item.symbol : item.quoteMint || item.mint || item.address || item.id,
+    value: selected.dataset.provider === "pumpfun" ? item.ticker || item.symbol : selected.dataset.provider === "flap" ? item.address : item.quoteMint || item.mint || item.address || item.id,
+    decimals: Number(item.decimals ?? 18),
   })) : [];
 }
 async function loadPairs() {
   const select = $("#pairSelect"); select.innerHTML = '<option value="">Loading launch pairs…</option>';
   try {
     const response = await fetch(`${apiUrl}/v1/pairs?provider=${selected.dataset.provider}`); const data = await response.json(); if (!response.ok) throw new Error(data.error);
-    const pairs = normalizePairs(data); select.innerHTML = pairs.map((pair) => `<option value="${String(pair.value).replaceAll('"', '&quot;')}">${pair.label}</option>`).join("") || '<option value="">Default provider pair</option>';
+    const pairs = normalizePairs(data); select.innerHTML = pairs.map((pair) => `<option value="${String(pair.value).replaceAll('"', '&quot;')}" data-decimals="${pair.decimals}">${pair.label}</option>`).join("") || '<option value="">Default provider pair</option>';
   } catch { select.innerHTML = '<option value="">Provider default</option>'; }
 }
 
@@ -93,6 +107,7 @@ async function checkApi() {
 
 providers.forEach((button) => button.addEventListener("click", () => selectProvider(button)));
 document.querySelectorAll("[data-wallet]").forEach((button) => button.addEventListener("click", async () => { try { await connectWallet(); } catch (error) { showToast(error.message); } }));
+$("#emberFee").addEventListener("change", (event) => { const fee = Number(event.target.value); $("#providerFee").textContent = moneyBps(fee); $("#totalFee").textContent = moneyBps(fee); selected.dataset.fee = String(fee); });
 
 $("#assetImage").addEventListener("change", (event) => {
   const file = event.target.files[0]; if (!file) return;
@@ -154,10 +169,68 @@ async function launchPons() {
   return { message: `Pons launch confirmed${token ? ` · ${shortAddress(token)}` : ""}.`, url: `https://robinhoodchain.blockscout.com/tx/${hash}` };
 }
 
+async function switchToBnb() {
+  try { await window.ethereum.request({ method: "wallet_switchEthereumChain", params: [{ chainId: "0x38" }] }); }
+  catch (error) { if (error?.code !== 4902) throw error; await window.ethereum.request({ method: "wallet_addEthereumChain", params: [{ chainId: "0x38", chainName: "BNB Smart Chain", nativeCurrency: { name: "BNB", symbol: "BNB", decimals: 18 }, rpcUrls: [BSC_RPC], blockExplorerUrls: ["https://bscscan.com"] }] }); }
+}
+
+function findFlapSalt() {
+  const bytecode = `0x3d602d80600a3d3981f3363d3d373d3d3d363d73${FLAP_TAX_IMPL.slice(2).toLowerCase()}5af43d82803e903d91602b57fd5bf3`;
+  const predict = (salt) => getContractAddress({ from: FLAP_PORTAL, salt: toBytes(salt), bytecode, opcode: "CREATE2" });
+  const seed = new Uint8Array(32); window.crypto.getRandomValues(seed);
+  let salt = keccak256(seed); let address = predict(salt); let iterations = 0;
+  while (!address.toLowerCase().endsWith("7777")) { salt = keccak256(salt); address = predict(salt); iterations++; if (iterations > 500000) throw new Error("Could not reserve a Flap token address. Try again."); }
+  return { salt, address };
+}
+
+async function launchFlap() {
+  if (!imageData) throw new Error("Add a token image first.");
+  if (walletType !== "evm") await connectWallet();
+  await switchToBnb();
+  const publicClient = createPublicClient({ chain: bnbChain, transport: http(BSC_RPC) });
+  const walletClient = createWalletClient({ account: walletAddress, chain: bnbChain, transport: custom(window.ethereum) });
+  const balance = await publicClient.getBalance({ address: walletAddress });
+  const option = $("#pairSelect").selectedOptions[0];
+  const quoteToken = $("#pairSelect").value || ZERO; const quoteDecimals = Number(option?.dataset.decimals || 18);
+  const quoteAmt = parseUnits(String($("#initialBuy").value || "0"), quoteDecimals);
+  const minimumGas = parseUnits("0.01", 18);
+  if (balance < minimumGas + (quoteToken === ZERO ? quoteAmt : 0n)) throw new Error("This wallet needs more BNB for launch gas and the selected initial buy.");
+  $("#intentMessage").textContent = "Uploading artwork to Flap IPFS…";
+  const upload = await fetch(`${apiUrl}/v1/metadata/flap`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ logo: imageData, creatorWallet: walletAddress, description: $("#description").value, website: $("#flapWebsite").value || "", x: $("#flapX").value || "" }) });
+  const metadata = await upload.json(); if (!upload.ok || !metadata.cid) throw new Error(metadata.error || "Flap metadata upload failed.");
+  $("#intentMessage").textContent = "Reserving a Flap 7777 token address…";
+  const vanity = findFlapSalt();
+  if (quoteToken !== ZERO && quoteAmt > 0n) {
+    const allowance = await publicClient.readContract({ address: quoteToken, abi: erc20Abi, functionName: "allowance", args: [walletAddress, FLAP_PORTAL] });
+    if (allowance < quoteAmt) { $("#intentMessage").textContent = "Approve the selected Flap quote token…"; const approval = await walletClient.writeContract({ address: quoteToken, abi: erc20Abi, functionName: "approve", args: [FLAP_PORTAL, quoteAmt] }); await publicClient.waitForTransactionReceipt({ hash: approval }); }
+  }
+  const params = { name: $("#marketName").value.trim(), symbol: $("#ticker").value.trim().toUpperCase(), meta: metadata.cid, dexThresh: 1, salt: vanity.salt, migratorType: 1, quoteToken, quoteAmt, beneficiary: walletAddress, permitData: "0x", extensionID: `0x${"0".repeat(64)}`, extensionData: "0x", dexId: 0, lpFeeProfile: 0, buyTaxRate: Number($("#flapBuyTax").value), sellTaxRate: Number($("#flapSellTax").value), taxDuration: 31536000n, antiFarmerDuration: 259200n, mktBps: 10000, deflationBps: 0, dividendBps: 0, lpBps: 0, minimumShareBalance: 0n, dividendToken: ZERO, commissionReceiver: ZERO, tokenVersion: 6 };
+  $("#intentMessage").textContent = "Confirm the Flap launch in your wallet…";
+  const hash = await walletClient.writeContract({ address: FLAP_PORTAL, abi: flapPortalAbi, functionName: "newTokenV6", args: [params], value: quoteToken === ZERO ? quoteAmt : 0n });
+  const receipt = await publicClient.waitForTransactionReceipt({ hash, confirmations: 1, timeout: 180000 }); if (receipt.status !== "success") throw new Error("Flap launch transaction reverted.");
+  return { message: `Flap token live · ${shortAddress(vanity.address)}.`, url: `https://flap.sh/bnb/${vanity.address}` };
+}
+
+async function launchEmber() {
+  if (!imageData) throw new Error("Add a token image first.");
+  if (walletType !== "solana") await connectWallet();
+  const wallet = window.phantom?.solana || window.solana;
+  $("#intentMessage").textContent = "Uploading artwork to Ember…";
+  const upload = await fetch(`${apiUrl}/v1/metadata/ember`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ logo: imageData, name: $("#marketName").value.trim(), ticker: $("#ticker").value.trim().toUpperCase(), description: $("#description").value, website: $("#emberWebsite").value || "", x: $("#emberX").value || "" }) });
+  const metadata = await upload.json(); if (!upload.ok || !metadata.uri) throw new Error(metadata.error || "Ember metadata upload failed.");
+  const prepare = await fetch(`${apiUrl}/v1/launches/prepare`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ provider: "ember", creatorWallet: walletAddress, name: $("#marketName").value, ticker: $("#ticker").value, description: $("#description").value, uri: metadata.uri, image: metadata.image, links: { website: $("#emberWebsite").value || "", x: $("#emberX").value || "", telegram: "" }, quoteMint: $("#pairSelect").value, feeBps: Number($("#emberFee").value), graduateUsd: Number($("#emberGraduate").value) }) });
+  const prepared = await prepare.json(); if (!prepare.ok) throw new Error(prepared.error || "Ember launch preparation failed.");
+  const transaction = Transaction.from(base64ToBytes(prepared.transaction));
+  const signed = await wallet.signTransaction(transaction);
+  const submit = await fetch(`${apiUrl}/v1/launches/submit`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ provider: "ember", launchId: prepared.launchId, signedTransaction: bytesToBase64(signed.serialize()) }) });
+  const result = await submit.json(); if (!submit.ok) throw new Error(result.error || "Ember launch submission failed.");
+  return { message: `Ember token live${result.mint ? ` · ${shortAddress(result.mint)}` : ""}.`, url: result.mint || result.pool ? `https://embercurve.fun/t/${result.mint || result.pool}` : undefined };
+}
+
 $("#launchNow").addEventListener("click", async () => {
   const button = $("#launchNow"); button.disabled = true; button.textContent = "Waiting for wallet…"; $("#intentMessage").textContent = "Do not close this window while the provider prepares your transaction.";
   try {
-    const result = selected.dataset.provider === "stonkfun" ? await launchStonk() : selected.dataset.provider === "pumpfun" ? await launchPump() : await launchPons();
+    const result = selected.dataset.provider === "stonkfun" ? await launchStonk() : selected.dataset.provider === "pumpfun" ? await launchPump() : selected.dataset.provider === "pons" ? await launchPons() : selected.dataset.provider === "flap" ? await launchFlap() : await launchEmber();
     $("#intentMessage").innerHTML = result.url ? `${result.message} <a href="${result.url}" target="_blank" rel="noopener">View transaction ↗</a>` : result.message;
     button.textContent = "Launch submitted"; showToast("Launch submitted successfully.");
   } catch (error) { $("#intentMessage").textContent = error.message || "Launch failed."; button.textContent = "Try launch again"; button.disabled = false; }
