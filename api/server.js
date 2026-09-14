@@ -1,5 +1,7 @@
 import http from "node:http";
 import crypto from "node:crypto";
+import { readFile } from "node:fs/promises";
+import { fileURLToPath } from "node:url";
 
 const port = Number(process.env.PORT || 8080);
 const startedAt = new Date().toISOString();
@@ -18,6 +20,14 @@ const allowedOrigins = new Set(
     .map((item) => item.trim())
     .filter(Boolean),
 );
+const publicDir = fileURLToPath(new URL("./public/", import.meta.url));
+const staticFiles = new Map([
+  ["/", ["index.html", "text/html; charset=utf-8"]],
+  ["/index.html", ["index.html", "text/html; charset=utf-8"]],
+  ["/styles.css", ["styles.css", "text/css; charset=utf-8"]],
+  ["/app.js", ["app.js", "text/javascript; charset=utf-8"]],
+  ["/config.js", ["config.js", "text/javascript; charset=utf-8"]],
+]);
 
 const providers = {
   stonkfun: {
@@ -167,6 +177,22 @@ const server = http.createServer(async (req, res) => {
   }
 
   const url = new URL(req.url, "http://localhost");
+
+  if (req.method === "GET" && staticFiles.has(url.pathname)) {
+    const [fileName, contentType] = staticFiles.get(url.pathname);
+    try {
+      const body = await readFile(`${publicDir}${fileName}`);
+      res.writeHead(200, {
+        "content-type": contentType,
+        "cache-control": fileName === "index.html" ? "no-cache" : "public, max-age=3600",
+        "x-content-type-options": "nosniff",
+        "referrer-policy": "strict-origin-when-cross-origin",
+      });
+      return res.end(body);
+    } catch {
+      return json(res, 404, { error: "frontend_not_found" }, origin);
+    }
+  }
 
   if (req.method === "GET" && url.pathname === "/health") {
     return json(res, 200, {
