@@ -1,0 +1,99 @@
+.provider-logo {
+  overflow: hidden;
+}
+
+.provider-logo img,
+.mini-logo img,
+.summary-provider-logo img,
+.provider-art span img {
+  display: block;
+  object-fit: contain;
+}
+
+.provider-logo img {
+  width: 28px;
+  height: 28px;
+}
+
+.stonk-logo { background: #e8f5f8; }
+.pump-logo { background: #18352e; }
+.pump-logo img { width: 34px; height: 34px; }
+.pons-logo { background: #dfff45; }
+.pons-logo img { width: 36px; height: 36px; }
+.flap-logo { background: #10110e; }
+.flap-logo img { width: 32px; height: 32px; }
+.ember-logo { background: #fff0e9; }
+.ember-logo img { width: 36px; height: 36px; border-radius: 9px; }
+
+.stonk-art > span {
+  background: #e9f6f9;
+  font-size: 0;
+}
+.stonk-art > span img { width: 72px; height: 72px; }
+
+.pump-art > span {
+  background: #17352e;
+  font-size: 0;
+  overflow: hidden;
+}
+.pump-art > span img { width: 104px; height: 104px; }
+.pump-art > i { font-size: 42px; }
+
+.pons-art > span {
+  font-size: 0;
+  overflow: hidden;
+}
+.pons-art > span img { width: 118px; height: 118px; }
+
+.flap-art > span {
+  width: min(310px, 72%);
+  display: grid;
+  place-items: center;
+  font-size: 0;
+}
+.flap-art > span img { width: 100%; height: auto; }
+
+.ember-art > span {
+  border-radius: 29px;
+  font-size: 0;
+  overflow: hidden;
+}
+.ember-art > span img {
+  width: 84px;
+  height: 84px;
+  border-radius: 22px;
+}
+
+.mini-logo,
+.summary-provider-logo {
+  background: color-mix(in srgb, var(--accent) 35%, #fff);
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+}
+
+.mini-logo img {
+  width: 33px;
+  height: 33px;
+  border-radius: 8px;
+}
+
+.summary-provider-logo {
+  width: 48px;
+  height: 48px;
+  border-radius: 14px;
+  flex: 0 0 auto;
+}
+
+.summary-provider-logo img {
+  width: 34px;
+  height: 34px;
+  border-radius: 8px;
+}
+
+@media (max-width: 720px) {
+  .provider-art .stonk-art > span img { width: 60px; height: 60px; }
+  .provider-art .pump-art > span img { width: 82px; height: 82px; }
+  .provider-art .pump-art > i { font-size: 32px; }
+  .provider-art .pons-art > span img { width: 88px; height: 88px; }
+}
