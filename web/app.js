@@ -1,6 +1,3 @@
-import { Transaction } from "https://esm.sh/@solana/web3.js@1.98.4";
-import { createPublicClient, createWalletClient, custom, decodeEventLog, defineChain, getContractAddress, http, keccak256, parseUnits, toBytes, toHex } from "https://esm.sh/viem@2.37.3";
-
 const config = window.ANYTHING_CONFIG || {};
 const apiUrl = String(config.apiUrl || "").replace(/\/$/, "");
 const providers = [...document.querySelectorAll(".provider")];
@@ -9,6 +6,32 @@ let selected = providers[0];
 let imageData = "";
 let walletAddress = "";
 let walletType = "";
+let Transaction;
+let createPublicClient, createWalletClient, custom, decodeEventLog, defineChain, getContractAddress, http, keccak256, parseUnits, toBytes, toHex;
+let robinhoodChain;
+let bnbChain;
+let solanaToolsPromise;
+let evmToolsPromise;
+
+async function ensureSolanaTools() {
+  if (!solanaToolsPromise) {
+    solanaToolsPromise = import("https://esm.sh/@solana/web3.js@1.98.4").then((module) => {
+      Transaction = module.Transaction;
+    });
+  }
+  return solanaToolsPromise;
+}
+
+async function ensureEvmTools() {
+  if (!evmToolsPromise) {
+    evmToolsPromise = import("https://esm.sh/viem@2.37.3").then((module) => {
+      ({ createPublicClient, createWalletClient, custom, decodeEventLog, defineChain, getContractAddress, http, keccak256, parseUnits, toBytes, toHex } = module);
+      robinhoodChain = defineChain({ id: 4663, name: "Robinhood Chain", nativeCurrency: { name: "Ether", symbol: "ETH", decimals: 18 }, rpcUrls: { default: { http: [RH_RPC] } }, blockExplorers: { default: { name: "Blockscout", url: "https://robinhoodchain.blockscout.com" } } });
+      bnbChain = defineChain({ id: 56, name: "BNB Smart Chain", nativeCurrency: { name: "BNB", symbol: "BNB", decimals: 18 }, rpcUrls: { default: { http: [BSC_RPC] } }, blockExplorers: { default: { name: "BscScan", url: "https://bscscan.com" } } });
+    });
+  }
+  return evmToolsPromise;
+}
 
 const providerContent = {
   stonkfun: {
@@ -54,8 +77,6 @@ const RH_RPC = "https://rpc.mainnet.chain.robinhood.com";
 const FLAP_PORTAL = "0xe2cE6ab80874Fa9Fa2aAE65D277Dd6B8e65C9De0";
 const FLAP_TAX_IMPL = "0x024f18294970B5c76c0691b87f138A0317156422";
 const BSC_RPC = "https://bsc-dataseed.binance.org/";
-const robinhoodChain = defineChain({ id: 4663, name: "Robinhood Chain", nativeCurrency: { name: "Ether", symbol: "ETH", decimals: 18 }, rpcUrls: { default: { http: [RH_RPC] } }, blockExplorers: { default: { name: "Blockscout", url: "https://robinhoodchain.blockscout.com" } } });
-const bnbChain = defineChain({ id: 56, name: "BNB Smart Chain", nativeCurrency: { name: "BNB", symbol: "BNB", decimals: 18 }, rpcUrls: { default: { http: [BSC_RPC] } }, blockExplorers: { default: { name: "BscScan", url: "https://bscscan.com" } } });
 const factoryAbi = [
   { type: "function", name: "launchFee", stateMutability: "view", inputs: [], outputs: [{ type: "uint256" }] },
   { type: "function", name: "launchConfigCount", stateMutability: "view", inputs: [], outputs: [{ type: "uint256" }] },
@@ -177,6 +198,7 @@ $("#closeDrawer").addEventListener("click", closeDrawer); $("#backdrop").addEven
 async function launchStonk() {
   if (!imageData) throw new Error("Add a token image first.");
   if (walletType !== "solana") await connectWallet();
+  await ensureSolanaTools();
   const wallet = window.phantom?.solana || window.solana;
   const response = await fetch(`${apiUrl}/v1/launches/prepare`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ provider: "stonkfun", creatorWallet: walletAddress, quoteMint: $("#pairSelect").value, name: $("#marketName").value, ticker: $("#ticker").value, mode: $("#stonkMode").value, logo: imageData, devBuyPercent: Number($("#initialBuy").value || 0) }) });
   const prepared = await response.json(); if (!response.ok) throw new Error(prepared.details?.join(" ") || prepared.error || "Could not prepare launch.");
@@ -197,6 +219,7 @@ async function launchPump() {
 
 async function launchPons() {
   if (walletType !== "evm") await connectWallet();
+  await ensureEvmTools();
   const logo = $("#publicLogoUrl").value.trim(); if (!logo) throw new Error("Pons requires a public HTTPS logo URL.");
   const provider = window.ethereum;
   try { await provider.request({ method: "wallet_switchEthereumChain", params: [{ chainId: "0x1237" }] }); }
@@ -234,6 +257,7 @@ function findFlapSalt() {
 async function launchFlap() {
   if (!imageData) throw new Error("Add a token image first.");
   if (walletType !== "evm") await connectWallet();
+  await ensureEvmTools();
   await switchToBnb();
   const publicClient = createPublicClient({ chain: bnbChain, transport: http(BSC_RPC) });
   const walletClient = createWalletClient({ account: walletAddress, chain: bnbChain, transport: custom(window.ethereum) });
@@ -262,6 +286,7 @@ async function launchFlap() {
 async function launchEmber() {
   if (!imageData) throw new Error("Add a token image first.");
   if (walletType !== "solana") await connectWallet();
+  await ensureSolanaTools();
   const wallet = window.phantom?.solana || window.solana;
   $("#intentMessage").textContent = "Uploading artwork to Ember…";
   const upload = await fetch(`${apiUrl}/v1/metadata/ember`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ logo: imageData, name: $("#marketName").value.trim(), ticker: $("#ticker").value.trim().toUpperCase(), description: $("#description").value, website: $("#emberWebsite").value || "", x: $("#emberX").value || "" }) });
