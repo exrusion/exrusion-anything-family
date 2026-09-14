@@ -27,6 +27,7 @@ const staticFiles = new Map([
   ["/styles.css", ["styles.css", "text/css; charset=utf-8"]],
   ["/brand-logos.css", ["brand-logos.css", "text/css; charset=utf-8"]],
   ["/wallet-selector.css", ["wallet-selector.css", "text/css; charset=utf-8"]],
+  ["/anything-logo.png", ["anything-logo.png", "image/png"]],
   ["/app.js", ["app.js", "text/javascript; charset=utf-8"]],
   ["/config.js", ["config.js", "text/javascript; charset=utf-8"]],
 ]);
