@@ -3,56 +3,96 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
-  <title>Anything — Launch any market</title>
-  <meta name="description" content="One launchpad for StonkFun, Pump.fun and Pons.">
-  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='18' fill='%23eaff61'/%3E%3Cpath d='M16 46 28 16h9l12 30h-9l-2-6H26l-2 6zm13-14h7l-3.5-10z' fill='%2308090b'/%3E%3C/svg%3E">
+  <title>Anything — One place to launch anything</title>
+  <meta name="description" content="Launch across StonkFun, Pump.fun, Pons, Flap and Ember from one wallet-ready interface.">
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='18' fill='%23111111'/%3E%3Cpath d='M16 46 28 16h9l12 30h-9l-2-6H26l-2 6zm13-14h7l-3.5-10z' fill='%23dfff45'/%3E%3C/svg%3E">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=Instrument+Serif:ital@0;1&family=Manrope:wght@400;500;600;700;800&family=Nunito+Sans:wght@500;600;700;800;900&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Sora:wght@400;500;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="/styles.css">
 </head>
-<body>
-  <nav><a class="brand" href="/"><span>A</span>anything<em>.family</em></a><div class="navlinks"><a class="active" href="#launch">Launch</a><a href="#markets">Markets</a><a href="#activity">Activity</a></div><div class="status"><i></i><b id="apiStatus">Connecting</b></div><button class="wallet" data-wallet>Connect wallet</button></nav>
+<body data-theme="stonkfun">
+  <nav class="topbar">
+    <a class="brand" href="#launch" aria-label="Anything home"><span>A</span><b>anything</b><em>.family</em></a>
+    <div class="navlinks"><a class="active" href="#launch">Launch</a><a href="#routeGuide">How it works</a></div>
+    <div class="status"><i></i><b id="apiStatus">Connecting routes</b></div>
+    <button class="wallet" data-wallet>Connect wallet</button>
+  </nav>
+
   <main id="launch">
-    <section class="workspace">
-      <header><div><p class="eyebrow">Universal launch terminal</p><h1>Launch <mark>anything.</mark></h1></div><span class="step">01 / BUILD</span></header>
-      <div class="stats"><div><small>SUPPORTED RAILS</small><b id="railCount">05</b></div><div><small>NETWORKS</small><b>03</b></div><div><small>ROUTING</small><b class="lime">READY</b></div></div>
-      <div class="panel builder">
-        <div class="providers" id="providers">
-          <button class="provider active" data-provider="stonkfun" data-name="StonkFun" data-chain="Solana" data-fee="100"><span class="provider-head"><i class="pi blue">S</i><i class="selected">●</i></span><b>StonkFun</b><small>Stocks & reward markets</small></button>
-          <button class="provider" data-provider="pumpfun" data-name="Pump.fun" data-chain="Solana" data-fee="100"><span class="provider-head"><i class="pi green">P</i><i class="selected">●</i></span><b>Pump.fun</b><small>Memes & culture coins</small></button>
-          <button class="provider" data-provider="pons" data-name="Pons" data-chain="Robinhood Chain" data-fee="125"><span class="provider-head"><i class="pi violet">✦</i><i class="selected">●</i></span><b>Pons</b><small>Creator & paired markets</small></button>
-          <button class="provider" data-provider="flap" data-name="Flap" data-chain="BNB Chain" data-fee="0"><span class="provider-head"><i class="pi yellow">F</i><i class="selected">●</i></span><b>Flap</b><small>BNB tax tokens & RWA pairs</small></button>
-          <button class="provider" data-provider="ember" data-name="Ember" data-chain="Solana" data-fee="200"><span class="provider-head"><i class="pi orange">E</i><i class="selected">●</i></span><b>Ember</b><small>Meteora curves & fee modules</small></button>
+    <section class="intro">
+      <div><p class="kicker">Five launchpads. One workspace.</p><h1>Choose a rail.<br><span>Launch from here.</span></h1></div>
+      <p class="intro-copy">Your wallet stays in control. Pick the market, set the token, review the provider fee, then sign the final transaction.</p>
+    </section>
+
+    <section class="rail-picker" aria-label="Launchpad selector">
+      <button class="provider active" data-provider="stonkfun" data-name="StonkFun" data-chain="Solana" data-fee="100" data-tone="Market rail">
+        <span class="provider-logo stonk-logo">S</span><span><b>StonkFun</b><small>Stocks + rewards</small></span><i>01</i>
+      </button>
+      <button class="provider" data-provider="pumpfun" data-name="Pump.fun" data-chain="Solana" data-fee="100" data-tone="Meme rail">
+        <span class="provider-logo pump-logo">P</span><span><b>Pump.fun</b><small>Memes + culture</small></span><i>02</i>
+      </button>
+      <button class="provider" data-provider="pons" data-name="Pons" data-chain="Robinhood Chain" data-fee="125" data-tone="Creator rail">
+        <span class="provider-logo pons-logo">P</span><span><b>Pons</b><small>Creator markets</small></span><i>03</i>
+      </button>
+      <button class="provider" data-provider="flap" data-name="Flap" data-chain="BNB Chain" data-fee="0" data-tone="Programmable rail">
+        <span class="provider-logo flap-logo">✣</span><span><b>Flap</b><small>BNB + tax tokens</small></span><i>04</i>
+      </button>
+      <button class="provider" data-provider="ember" data-name="Ember" data-chain="Solana" data-fee="200" data-tone="Fee rail">
+        <span class="provider-logo ember-logo">●</span><span><b>Ember</b><small>Stocks + fee modules</small></span><i>05</i>
+      </button>
+    </section>
+
+    <section class="provider-stage">
+      <header class="provider-hero">
+        <div class="hero-copy">
+          <span class="route-tag" id="routeTone">Market rail</span>
+          <h2 id="routeHeadline">Pair a coin with the market.</h2>
+          <p id="routeDescription">Use StonkFun’s stock, commodity and custom pairs with creator or holder rewards.</p>
+          <div class="hero-meta"><span><i></i><b id="heroNetwork">Solana</b></span><span id="heroMechanic">Wallet-signed API</span></div>
         </div>
-        <form id="launchForm">
-          <h2><span>01</span> Asset details</h2>
+        <div class="provider-art" aria-hidden="true">
+          <div class="stonk-art"><span>S</span><svg viewBox="0 0 330 120"><path d="M6 95 C55 12 92 112 140 48 S222 76 270 28 S316 32 326 12"/></svg><b>MARKET / PAIR</b></div>
+          <div class="pump-art"><span>p</span><i>fun</i><b>launch it</b></div>
+          <div class="pons-art"><span>P</span><i></i><b>paired onchain</b></div>
+          <div class="flap-art"><span>✣ FLAP</span><i>/// PROGRAMMABLE</i><b>CREATE TOKEN →</b></div>
+          <div class="ember-art"><span>●</span><i></i><i></i><i></i><b>fees go somewhere.</b></div>
+        </div>
+      </header>
+
+      <div class="build-grid">
+        <form id="launchForm" class="launch-card">
+          <div class="form-heading"><div><span class="section-number">01</span><h3>Token details</h3></div><small id="formHint">Built for paired markets</small></div>
           <div class="asset-row">
-            <label class="upload"><input id="assetImage" type="file" accept="image/*"><span id="uploadText">＋<small>ADD IMAGE</small></span><img id="imagePreview" alt=""></label>
-            <div class="field-grid"><label>Market name<input id="marketName" required minlength="2" maxlength="32" placeholder="e.g. Infinite Coffee"></label><label>Ticker<input id="ticker" required pattern="[A-Za-z0-9]{2,10}" maxlength="10" placeholder="BREW"></label></div>
+            <label class="upload" aria-label="Add token image"><input id="assetImage" type="file" accept="image/*"><span id="uploadText"><b>+</b><small>Add image</small></span><img id="imagePreview" alt="Token preview"></label>
+            <div class="field-grid asset-fields"><label>Token name<input id="marketName" required minlength="2" maxlength="32" placeholder="e.g. Infinite Coffee"></label><label>Ticker<input id="ticker" required pattern="[A-Za-z0-9]{2,10}" maxlength="10" placeholder="BREW"></label></div>
           </div>
-          <label class="description">Description<textarea id="description" maxlength="500" placeholder="What is this market about?"></textarea></label>
-          <hr>
-          <h2><span>02</span> Launch route</h2>
-          <div class="route-inputs"><div class="network"><i>◈</i><span><small>Network</small><b id="networkName">Solana</b></span></div><label id="initialBuyLabel"><span>Dev buy %</span><input id="initialBuy" type="number" min="0" max="50" step=".01" value="0"></label></div>
-          <label class="wide-field">Launch pair<select id="pairSelect"><option>Loading launch pairs…</option></select></label>
-          <div id="stonkOptions" class="provider-options"><label>Launch mode<select id="stonkMode"><option value="standard">Standard — creator fees</option><option value="reward">Reward — holder rewards</option></select></label><p>Your Phantom wallet signs StonkFun's prepared transaction locally.</p></div>
-          <div id="pumpOptions" class="provider-options" hidden><div class="field-grid"><label>X post URL<input id="xUrl" type="url" placeholder="https://x.com/.../status/..."></label><label>Creator fee %<input id="pumpCreatorFee" type="number" min="0" max="1" step=".1" value="0"></label></div><label>X image URL<input id="pumpImageUrl" type="url" placeholder="https://pbs.twimg.com/media/..."></label><p>Pump.fun custom-pair launches use your existing secured Railway adapter.</p></div>
-          <div id="ponsOptions" class="provider-options" hidden><label>Public logo URL<input id="publicLogoUrl" type="url" placeholder="https://..."></label><label>Website URL<input id="websiteUrl" type="url" placeholder="https://..."></label><p>Your EVM wallet signs directly on Robinhood Chain. Creator fees go to the connected wallet.</p></div>
-          <div id="flapOptions" class="provider-options" hidden><div class="field-grid"><label>Buy tax<select id="flapBuyTax"><option value="100">1%</option><option value="300" selected>3%</option><option value="500">5%</option><option value="1000">10%</option></select></label><label>Sell tax<select id="flapSellTax"><option value="100">1%</option><option value="300">3%</option><option value="500">5%</option><option value="1000" selected>10%</option></select></label></div><div class="field-grid"><label>Website<input id="flapWebsite" type="url" placeholder="https://..."></label><label>X profile<input id="flapX" type="url" placeholder="https://x.com/..."></label></div><p>Flap Tax Token V3. Revenue beneficiary is the connected wallet; the wallet signs on BNB Chain.</p></div>
-          <div id="emberOptions" class="provider-options" hidden><div class="field-grid"><label>Trade tax<select id="emberFee"><option value="100">1%</option><option value="200" selected>2%</option><option value="300">3%</option></select></label><label>Graduation<select id="emberGraduate"><option value="25000">$25,000</option><option value="35000" selected>$35,000</option><option value="40000">$40,000</option></select></label></div><div class="field-grid"><label>Website<input id="emberWebsite" type="url" placeholder="https://..."></label><label>X profile<input id="emberX" type="url" placeholder="https://x.com/..."></label></div><p>Holder-rewards mode: the creator side is distributed to holders in the selected pair token.</p></div>
-          <button class="primary" type="submit">Review launch <span>→</span></button>
+          <label class="description">Description<textarea id="description" maxlength="500" placeholder="Tell people what you are launching"></textarea></label>
+          <div class="section-line"><span class="section-number">02</span><h3>Launch settings</h3></div>
+          <div class="route-inputs"><div class="network-card"><span class="chain-mark">◆</span><span><small>Network</small><b id="networkName">Solana</b></span></div><label id="initialBuyLabel"><span>Dev buy %</span><input id="initialBuy" type="number" min="0" max="50" step=".01" value="0"></label></div>
+          <label class="wide-field">Pair with<select id="pairSelect"><option>Loading available pairs…</option></select></label>
+
+          <div id="stonkOptions" class="provider-options stonk-options"><label>Reward model<select id="stonkMode"><option value="standard">Creator fees</option><option value="reward">Holder rewards</option></select></label><p>Phantom signs StonkFun’s prepared transaction locally.</p></div>
+          <div id="pumpOptions" class="provider-options pump-options" hidden><div class="field-grid"><label>X post URL<input id="xUrl" type="url" placeholder="https://x.com/.../status/..."></label><label>Creator fee %<input id="pumpCreatorFee" type="number" min="0" max="1" step=".1" value="0"></label></div><label>X image URL<input id="pumpImageUrl" type="url" placeholder="https://pbs.twimg.com/media/..."></label><p>Custom-pair launches are submitted through the secured Pump.fun adapter.</p></div>
+          <div id="ponsOptions" class="provider-options pons-options" hidden><div class="field-grid"><label>Public logo URL<input id="publicLogoUrl" type="url" placeholder="https://..."></label><label>Website URL<input id="websiteUrl" type="url" placeholder="https://..."></label></div><p>Your EVM wallet signs on Robinhood Chain. Creator fees use the connected wallet.</p></div>
+          <div id="flapOptions" class="provider-options flap-options" hidden><div class="field-grid"><label>Buy tax<select id="flapBuyTax"><option value="100">1%</option><option value="300" selected>3%</option><option value="500">5%</option><option value="1000">10%</option></select></label><label>Sell tax<select id="flapSellTax"><option value="100">1%</option><option value="300">3%</option><option value="500">5%</option><option value="1000" selected>10%</option></select></label></div><div class="field-grid"><label>Website<input id="flapWebsite" type="url" placeholder="https://..."></label><label>X profile<input id="flapX" type="url" placeholder="https://x.com/..."></label></div><p>Flap Tax Token V3 launches through the BNB Portal with your wallet as beneficiary.</p></div>
+          <div id="emberOptions" class="provider-options ember-options" hidden><div class="field-grid"><label>Trade tax<select id="emberFee"><option value="100">1%</option><option value="200" selected>2%</option><option value="300">3%</option></select></label><label>Graduation<select id="emberGraduate"><option value="25000">$25,000</option><option value="35000" selected>$35,000</option><option value="40000">$40,000</option></select></label></div><div class="field-grid"><label>Website<input id="emberWebsite" type="url" placeholder="https://..."></label><label>X profile<input id="emberX" type="url" placeholder="https://x.com/..."></label></div><p>Holder-rewards mode distributes the creator side in the selected pair token.</p></div>
+          <button class="primary" type="submit"><span>Review launch</span><b>→</b></button>
         </form>
+
+        <aside>
+          <article class="side-card route-card"><div class="side-title"><span>Live route</span><i>READY</i></div><div class="route-lockup"><span class="mini-logo" id="sideLogo">S</span><div><b id="routeName">StonkFun</b><small id="settlement">Solana settlement</small></div></div><ol><li><span>1</span><div><b>Build here</b><small>Enter token and pair settings</small></div></li><li><span>2</span><div><b>Review once</b><small>See route, network and fees</small></div></li><li><span>3</span><div><b>Sign in wallet</b><small>Provider receives the transaction</small></div></li></ol></article>
+          <article class="side-card fee-card"><div class="side-title"><span>Fee preview</span><small>Before signing</small></div><div class="fee"><p><span>Provider fee</span><b id="providerFee">1.00%</b></p><p><span>Anything fee</span><b id="platformFee">0.00%</b></p><p class="total"><span>Total shown fee</span><b id="totalFee">1.00%</b></p></div><small class="disclosure" id="feeDisclosure">Anything currently adds 0%. Provider fees still apply.</small></article>
+          <article class="side-card trust-card" id="routeGuide"><div><span class="trust-dot"></span><b>Non-custodial launch</b></div><p>Anything does not take your wallet key. Check the network, amount and recipient inside your wallet before signing.</p></article>
+        </aside>
       </div>
     </section>
-    <aside>
-      <article class="panel"><h3>Smart routing</h3><ol><li><b id="routeName">StonkFun selected</b><small>Best fit for stocks & reward markets</small></li><li><b id="settlement">Solana settlement</b><small>One wallet signature</small></li><li><b>Anything fee split</b><small>Transparent before launch</small></li></ol></article>
-      <article class="panel"><h3>Fee preview</h3><div class="fee"><p><span>Provider fee</span><b id="providerFee">1.00%</b></p><p><span>Anything fee</span><b id="platformFee">0.00%</b></p><p class="total"><span>Total launch fee</span><b id="totalFee">1.00%</b></p></div><small class="disclosure" id="feeDisclosure">Anything fee is currently 0% until a treasury wallet is configured. Provider fees still apply.</small></article>
-      <article class="panel activity" id="activity"><div class="activity-title"><h3>Launch rails</h3></div><div class="launch-row"><i>S</i><span><b>StonkFun</b><small>Official wallet-signed API</small></span><em>LIVE</em></div><div class="launch-row"><i>P</i><span><b>Pump.fun</b><small>Secured custom-pair adapter</small></span><em>ROUTED</em></div><div class="launch-row"><i>✦</i><span><b>Pons</b><small>Direct Robinhood Chain contract</small></span><em>LIVE</em></div><div class="launch-row"><i>F</i><span><b>Flap</b><small>Direct BNB Portal launch</small></span><em>LIVE</em></div><div class="launch-row"><i>E</i><span><b>Ember</b><small>Wallet-signed Meteora launch</small></span><em>LIVE</em></div></article>
-    </aside>
+
+    <section class="rail-summary"><p>Connected rails</p><div><span>StonkFun</span><span>Pump.fun</span><span>Pons</span><span>Flap</span><span>Ember</span></div><b>5 providers · 3 networks · 1 workspace</b></section>
   </main>
-  <div class="drawer" id="drawer" aria-hidden="true"><button class="backdrop" id="backdrop" aria-label="Close review"></button><section><div class="drawer-title"><div><p class="eyebrow">Final check</p><h2>Review launch</h2></div><button id="closeDrawer">×</button></div><div class="token-summary"><i id="summaryIcon">A</i><span><b id="summaryName">Untitled market</b><small><span id="summaryTicker">$TICKER</span> · <span id="summaryProvider">StonkFun</span></small></span></div><div class="fee summary"><p><span>Route</span><b id="summaryRoute">StonkFun</b></p><p><span>Network</span><b id="summaryNetwork">Solana</b></p><p><span>Launch amount</span><b id="summaryBuy">0</b></p><p class="total"><span>Shown provider fee</span><b id="summaryFee">1.00%</b></p></div><div class="risk-note">You are creating an on-chain asset. Verify every amount and address in your wallet before signing; transactions are irreversible.</div><div class="drawer-bottom"><p id="intentMessage">Your wallet will show the final transaction.</p><button class="primary" id="launchNow">Connect & launch on StonkFun</button></div></section></div>
-  <div class="toast" id="toast"></div>
+
+  <div class="drawer" id="drawer" aria-hidden="true"><button class="backdrop" id="backdrop" aria-label="Close review"></button><section><div class="drawer-title"><div><p class="kicker">Final check</p><h2>Review launch</h2></div><button id="closeDrawer" aria-label="Close">×</button></div><div class="token-summary"><i id="summaryIcon">A</i><span><b id="summaryName">Untitled market</b><small><span id="summaryTicker">$TICKER</span> · <span id="summaryProvider">StonkFun</span></small></span></div><div class="fee summary"><p><span>Route</span><b id="summaryRoute">StonkFun</b></p><p><span>Network</span><b id="summaryNetwork">Solana</b></p><p><span>Launch amount</span><b id="summaryBuy">0</b></p><p class="total"><span>Shown provider fee</span><b id="summaryFee">1.00%</b></p></div><div class="risk-note">This creates an on-chain asset. Verify every amount and address in your wallet before signing; transactions cannot be reversed.</div><div class="drawer-bottom"><p id="intentMessage">Your wallet will show the final transaction.</p><button class="primary" id="launchNow">Connect & launch on StonkFun</button></div></section></div>
+  <div class="toast" id="toast" role="status"></div>
   <script src="/config.js"></script><script type="module" src="/app.js"></script>
 </body>
 </html>
