@@ -1,4 +1,3 @@
 window.ANYTHING_CONFIG = {
-  apiUrl: "http://localhost:8080"
+  apiUrl: "https://anything-api-production.up.railway.app"
 };
-
