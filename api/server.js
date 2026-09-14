@@ -201,7 +201,7 @@ const server = http.createServer(async (req, res) => {
         const result = await upstream(`${stonkApiBase}/launches/prepare`, {
           method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(payload),
         });
-        return json(res, 200, { provider: "stonkfun", ...result }, origin);
+        return json(res, 200, { provider: "stonkfun", ...(result.data || result) }, origin);
       }
 
       if (body.provider === "pumpfun") {
@@ -233,7 +233,7 @@ const server = http.createServer(async (req, res) => {
         method: "POST", headers: { "content-type": "application/json" },
         body: JSON.stringify({ signedQuote: body.signedQuote, signedTransaction: body.signedTransaction, logo: body.logo }),
       });
-      return json(res, 200, { provider: "stonkfun", ...result }, origin);
+      return json(res, 200, { provider: "stonkfun", ...(result.data || result) }, origin);
     } catch (error) {
       return json(res, error.status || 502, error.body || { error: error.message || "provider_request_failed" }, origin);
     }
