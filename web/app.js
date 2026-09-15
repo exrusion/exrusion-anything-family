@@ -13,6 +13,7 @@ let walletChooserState = { kind: "evm", preferredKey: "", network: "" };
 let launchMode = "single";
 let activeMultiIds = [];
 let launchAttemptId = "";
+let launchAttemptCreatedAt = "";
 const providerDrafts = new Map();
 const multiResults = new Map();
 const announcedEvmWallets = new Map();
@@ -141,11 +142,11 @@ function escapeHtml(value) { return String(value || "").replace(/[&<>"']/g, (cha
 
 const launchHistoryKey = "anything.family.launched.v1";
 const previousLaunches = [
-  { id: "test-stonkfun", provider: "stonkfun", providerName: "StonkFun", network: "Solana", name: "TEST", ticker: "TEST", historical: true },
-  { id: "test-pumpfun", provider: "pumpfun", providerName: "Pump.fun", network: "Solana", name: "TEST", ticker: "TEST", historical: true },
-  { id: "test-ember", provider: "ember", providerName: "Ember", network: "Solana", name: "TEST", ticker: "TEST", historical: true },
-  { id: "test-pons", provider: "pons", providerName: "Pons", network: "Robinhood Chain", name: "TEST", ticker: "TEST", historical: true },
-  { id: "test-flap", provider: "flap", providerName: "Flap", network: "BNB Chain", name: "TEST", ticker: "TEST", historical: true },
+  { id: "test-stonkfun", provider: "stonkfun", providerName: "StonkFun", network: "Solana", name: "TEST", ticker: "TEST", historical: true, launchGroupId: "previous-test-multi", launchGroupIndex: 0, launchGroupSize: 5 },
+  { id: "test-pumpfun", provider: "pumpfun", providerName: "Pump.fun", network: "Solana", name: "TEST", ticker: "TEST", historical: true, launchGroupId: "previous-test-multi", launchGroupIndex: 1, launchGroupSize: 5 },
+  { id: "test-ember", provider: "ember", providerName: "Ember", network: "Solana", name: "TEST", ticker: "TEST", historical: true, launchGroupId: "previous-test-multi", launchGroupIndex: 2, launchGroupSize: 5 },
+  { id: "test-pons", provider: "pons", providerName: "Pons", network: "Robinhood Chain", name: "TEST", ticker: "TEST", historical: true, launchGroupId: "previous-test-multi", launchGroupIndex: 3, launchGroupSize: 5 },
+  { id: "test-flap", provider: "flap", providerName: "Flap", network: "BNB Chain", name: "TEST", ticker: "TEST", historical: true, launchGroupId: "previous-test-multi", launchGroupIndex: 4, launchGroupSize: 5 },
 ];
 function deviceLaunchHistory() {
   try { const value = JSON.parse(localStorage.getItem(launchHistoryKey) || "[]"); return Array.isArray(value) ? value : []; }
@@ -158,6 +159,62 @@ function launchHistory() {
     if (seen.has(key)) return false;
     seen.add(key);
     return true;
+  });
+}
+function addLegacyLaunchGroups(items) {
+  const groupedItems = new Map();
+  const candidatesByToken = new Map();
+  items.forEach((item, index) => {
+    if (item.launchGroupId || item.historical || !item.createdAt) return;
+    const createdAt = Date.parse(item.createdAt);
+    if (!Number.isFinite(createdAt)) return;
+    const key = `${String(item.name || "").trim().toLowerCase()}:${String(item.ticker || "").trim().toLowerCase()}`;
+    if (!candidatesByToken.has(key)) candidatesByToken.set(key, []);
+    candidatesByToken.get(key).push({ item, index, createdAt });
+  });
+  const flush = (cluster, key) => {
+    if (cluster.length < 2 || new Set(cluster.map(({ item }) => item.provider)).size < 2) return;
+    const groupId = `legacy:${key}:${Math.max(...cluster.map(({ createdAt }) => createdAt))}`;
+    const createdAt = new Date(Math.min(...cluster.map((entry) => entry.createdAt))).toISOString();
+    cluster.forEach((entry, groupIndex) => groupedItems.set(entry.index, {
+      ...entry.item,
+      launchGroupId: groupId,
+      launchGroupIndex: groupIndex,
+      launchGroupSize: cluster.length,
+      launchGroupCreatedAt: createdAt,
+    }));
+  };
+  candidatesByToken.forEach((entries, key) => {
+    entries.sort((a, b) => a.createdAt - b.createdAt);
+    let cluster = [];
+    entries.forEach((entry) => {
+      const first = cluster[0];
+      const previous = cluster[cluster.length - 1];
+      const repeatedProvider = cluster.some(({ item }) => item.provider === entry.item.provider);
+      const closeToBatch = !first || (entry.createdAt - first.createdAt <= 20 * 60 * 1000 && entry.createdAt - previous.createdAt <= 12 * 60 * 1000);
+      if (cluster.length && (repeatedProvider || !closeToBatch)) {
+        flush(cluster, key);
+        cluster = [];
+      }
+      cluster.push(entry);
+    });
+    flush(cluster, key);
+  });
+  return items.map((item, index) => groupedItems.get(index) || item);
+}
+function groupedLaunchHistory(items) {
+  const groups = new Map();
+  items.forEach((item) => {
+    if (!item.launchGroupId) return;
+    if (!groups.has(item.launchGroupId)) groups.set(item.launchGroupId, []);
+    groups.get(item.launchGroupId).push(item);
+  });
+  const emitted = new Set();
+  return items.flatMap((item) => {
+    if (!item.launchGroupId) return [{ type: "single", item }];
+    if (emitted.has(item.launchGroupId)) return [];
+    emitted.add(item.launchGroupId);
+    return [{ type: "group", id: item.launchGroupId, items: groups.get(item.launchGroupId).sort((a, b) => Number(a.launchGroupIndex || 0) - Number(b.launchGroupIndex || 0)) }];
   });
 }
 function addressFromLaunch(item) {
@@ -177,23 +234,36 @@ function explorerForLaunch(item, address) {
   if (item.network === "Robinhood Chain") return `https://robinhoodchain.blockscout.com/token/${address}`;
   return "";
 }
+function renderLaunchCard(item, grouped = false) {
+  const provider = providerContent[item.provider] || providerContent.stonkfun;
+  const address = addressFromLaunch(item);
+  const url = explorerForLaunch(item, address);
+  const when = item.historical ? "Previous confirmed launch" : new Date(item.createdAt).toLocaleString();
+  const ca = address ? `<span class="launch-ca"><code title="${escapeHtml(address)}">${escapeHtml(address)}</code><button type="button" data-copy-ca="${escapeHtml(address)}" aria-label="Copy contract address for ${escapeHtml(item.name)}">Copy CA</button></span>` : "";
+  const action = url ? `<a href="${escapeHtml(url)}" target="_blank" rel="noopener noreferrer" aria-label="View ${escapeHtml(item.name)} on explorer">View ↗</a>` : "<i>Confirmed</i>";
+  return `<article class="launched-item${grouped ? " is-grouped" : ""}${url ? " is-clickable" : ""}"${url ? ` data-launch-url="${escapeHtml(url)}" role="link" tabindex="0"` : ""}><img src="${escapeHtml(provider.logo)}" alt=""><span class="launch-info"><b>${escapeHtml(item.providerName)}</b><small>${escapeHtml(item.network)} · ${escapeHtml(when)}</small>${ca}</span><span class="launch-action">${action}</span></article>`;
+}
+function renderLaunchGroup(group) {
+  const first = group.items[0];
+  const expected = Math.max(group.items.length, ...group.items.map((item) => Number(item.launchGroupSize || 0)));
+  const groupDate = first.launchGroupCreatedAt || group.items.find((item) => item.createdAt)?.createdAt;
+  const when = first.historical || !groupDate ? "Previous confirmed multi-launch" : new Date(groupDate).toLocaleString();
+  const status = group.items.length === expected ? `${expected} launchpads` : `${group.items.length} of ${expected} confirmed`;
+  const logos = group.items.slice(0, 6).map((item) => {
+    const provider = providerContent[item.provider] || providerContent.stonkfun;
+    return `<img src="${escapeHtml(provider.logo)}" alt="${escapeHtml(item.providerName)}">`;
+  }).join("");
+  return `<details class="launched-group" open><summary><span class="launched-group-logos">${logos}</span><span class="launched-group-title"><b>${escapeHtml(first.name)} · ${escapeHtml(first.ticker)}</b><small>Multi-launch · ${escapeHtml(when)}</small></span><span class="launched-group-count">${escapeHtml(status)}</span></summary><div class="launched-group-grid">${group.items.map((item) => renderLaunchCard(item, true)).join("")}</div></details>`;
+}
 function renderLaunchHistory() {
   const grid = $("#launchedGrid");
   if (!grid) return;
-  const history = launchHistory();
+  const history = addLegacyLaunchGroups(launchHistory());
   if (!history.length) {
     grid.innerHTML = '<div class="launched-empty"><b>No launches saved yet.</b><span>Your successful launches will appear here automatically.</span></div>';
     return;
   }
-  grid.innerHTML = history.map((item) => {
-    const provider = providerContent[item.provider] || providerContent.stonkfun;
-    const address = addressFromLaunch(item);
-    const url = explorerForLaunch(item, address);
-    const when = item.historical ? "Previous confirmed launch" : new Date(item.createdAt).toLocaleString();
-    const ca = address ? `<span class="launch-ca"><code title="${escapeHtml(address)}">${escapeHtml(address)}</code><button type="button" data-copy-ca="${escapeHtml(address)}" aria-label="Copy contract address for ${escapeHtml(item.name)}">Copy CA</button></span>` : "";
-    const action = url ? `<a href="${escapeHtml(url)}" target="_blank" rel="noopener noreferrer" aria-label="View ${escapeHtml(item.name)} on explorer">View ↗</a>` : "<i>Confirmed</i>";
-    return `<article class="launched-item${url ? " is-clickable" : ""}"${url ? ` data-launch-url="${escapeHtml(url)}" role="link" tabindex="0"` : ""}><img src="${escapeHtml(provider.logo)}" alt=""><span class="launch-info"><b>${escapeHtml(item.name)} · ${escapeHtml(item.ticker)}</b><small>${escapeHtml(item.providerName)} · ${escapeHtml(item.network)} · ${escapeHtml(when)}</small>${ca}</span><span class="launch-action">${action}</span></article>`;
-  }).join("");
+  grid.innerHTML = groupedLaunchHistory(history).map((entry) => entry.type === "group" ? renderLaunchGroup(entry) : renderLaunchCard(entry.item)).join("");
 }
 async function copyLaunchAddress(address, button) {
   try {
@@ -224,15 +294,16 @@ $("#launchedGrid")?.addEventListener("keydown", (event) => {
     window.open(event.target.dataset.launchUrl, "_blank", "noopener,noreferrer");
   }
 });
-function recordLaunch(providerId, result) {
+function recordLaunch(providerId, result, groupMeta = null) {
   try {
     const providerButton = providers.find((item) => item.dataset.provider === providerId);
     if (!providerButton) return;
     const address = result?.address || addressFromLaunch(result);
-    const item = { provider: providerId, providerName: providerButton.dataset.name, network: providerButton.dataset.chain, name: $("#marketName").value.trim(), ticker: $("#ticker").value.trim().toUpperCase(), address, url: result?.url || explorerForLaunch({ network: providerButton.dataset.chain }, address), createdAt: new Date().toISOString() };
-    const history = deviceLaunchHistory().filter((entry) => !(item.url && entry.url === item.url));
+    const item = { id: groupMeta?.id ? `${groupMeta.id}:${providerId}` : window.crypto.randomUUID(), provider: providerId, providerName: providerButton.dataset.name, network: providerButton.dataset.chain, name: $("#marketName").value.trim(), ticker: $("#ticker").value.trim().toUpperCase(), address, url: result?.url || explorerForLaunch({ network: providerButton.dataset.chain }, address), createdAt: new Date().toISOString() };
+    if (groupMeta?.id) Object.assign(item, { launchGroupId: groupMeta.id, launchGroupIndex: groupMeta.index, launchGroupSize: groupMeta.size, launchGroupCreatedAt: groupMeta.createdAt });
+    const history = deviceLaunchHistory().filter((entry) => entry.id !== item.id && !(item.url && entry.url === item.url));
     history.unshift(item);
-    localStorage.setItem(launchHistoryKey, JSON.stringify(history.slice(0, 24)));
+    localStorage.setItem(launchHistoryKey, JSON.stringify(history.slice(0, 48)));
     renderLaunchHistory();
   } catch {}
 }
@@ -684,6 +755,7 @@ function updateQueueStatus(id, state, detail = "") {
 $("#launchForm").addEventListener("submit", (event) => {
   event.preventDefault(); captureProviderDraft();
   launchAttemptId = window.crypto.randomUUID();
+  launchAttemptCreatedAt = new Date().toISOString();
   const ticker = $("#ticker").value.trim().toUpperCase();
   $("#summaryName").textContent = $("#marketName").value.trim(); $("#summaryTicker").textContent = "$" + ticker;
   if (launchMode === "multi") {
@@ -921,7 +993,11 @@ $("#launchNow").addEventListener("click", async () => {
       updateQueueStatus(id, "running"); button.textContent = `Approve ${index + 1} of ${activeMultiIds.length}: ${providerButton.dataset.name}`;
       $("#intentMessage").textContent = `Preparing ${providerButton.dataset.name}. Confirm only after checking the wallet network and amount.`;
       try {
-        const result = await launchProviderById(id); multiResults.set(id, { ok: true, result }); recordLaunch(id, result); successCount++; updateQueueStatus(id, "success", result.message);
+        const result = await launchProviderById(id);
+        multiResults.set(id, { ok: true, result });
+        recordLaunch(id, result, activeMultiIds.length > 1 ? { id: launchAttemptId, index, size: activeMultiIds.length, createdAt: launchAttemptCreatedAt } : null);
+        successCount++;
+        updateQueueStatus(id, "success", result.message);
       } catch (error) {
         const message = readableError(error); multiResults.set(id, { ok: false, message }); failures.push(`${providerButton.dataset.name}: ${message}`); updateQueueStatus(id, "failed", message);
       }
