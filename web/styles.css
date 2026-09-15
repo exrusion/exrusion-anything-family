@@ -101,3 +101,9 @@ body[data-theme="fourmeme"] .primary{background:#f5d84b;color:#1a170d}
 
 /* Keep the spacious header open and borderless. */
 .topbar{border-bottom:0}
+
+/* Give the open side of the hero a quiet brand anchor. */
+.intro-side{width:min(410px,36vw);display:flex;flex-direction:column;align-items:flex-start;gap:20px;margin:0 0 6px}
+.intro-mark{display:block;width:92px;height:92px;object-fit:contain;filter:drop-shadow(0 14px 28px #44cbb024)}
+.intro-side .intro-copy{width:100%;margin:0}
+@media(max-width:720px){.intro-side{width:100%;margin:20px 0 0;gap:12px}.intro-mark{width:68px;height:68px}.intro-side .intro-copy{margin:0}}
