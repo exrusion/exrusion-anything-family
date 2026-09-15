@@ -98,3 +98,6 @@ body[data-theme="fourmeme"] .primary{background:#f5d84b;color:#1a170d}
 .launched-empty{grid-column:1/-1;display:flex;flex-direction:column;justify-content:center;color:#777b81}.launched-empty b{color:#202124;font-size:14px}.launched-empty span{font-size:11px;margin-top:4px}
 @media(max-width:900px){.launched-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
 @media(max-width:720px){.launched-section{margin-top:38px}.launched-heading{display:block}.launched-heading h2{font-size:40px}.launched-heading>p{margin-top:12px}.launched-grid{grid-template-columns:1fr}.launched-item{min-height:100px;border-radius:15px}.launched-empty{min-height:100px}}
+
+/* Keep the spacious header open and borderless. */
+.topbar{border-bottom:0}
