@@ -160,6 +160,23 @@ function launchHistory() {
     return true;
   });
 }
+function addressFromLaunch(item) {
+  if (item?.address) return String(item.address);
+  const url = String(item?.url || "");
+  const evm = url.match(/0x[a-fA-F0-9]{40}/);
+  if (evm) return evm[0];
+  const pathParts = url.split(/[/?#]/).filter(Boolean);
+  const solana = pathParts.find((part) => /^[1-9A-HJ-NP-Za-km-z]{32,44}$/.test(part));
+  return solana || "";
+}
+function explorerForLaunch(item, address) {
+  if (item?.url) return String(item.url);
+  if (!address) return "";
+  if (item.network === "Solana") return `https://solscan.io/token/${address}`;
+  if (item.network === "BNB Chain") return `https://bscscan.com/token/${address}`;
+  if (item.network === "Robinhood Chain") return `https://robinhoodchain.blockscout.com/token/${address}`;
+  return "";
+}
 function renderLaunchHistory() {
   const grid = $("#launchedGrid");
   if (!grid) return;
@@ -170,16 +187,49 @@ function renderLaunchHistory() {
   }
   grid.innerHTML = history.map((item) => {
     const provider = providerContent[item.provider] || providerContent.stonkfun;
-    const action = item.url ? `<a href="${escapeHtml(item.url)}" target="_blank" rel="noopener">View ↗</a>` : "<i>Confirmed</i>";
+    const address = addressFromLaunch(item);
+    const url = explorerForLaunch(item, address);
     const when = item.historical ? "Previous confirmed launch" : new Date(item.createdAt).toLocaleString();
-    return `<article class="launched-item"><img src="${escapeHtml(provider.logo)}" alt=""><span><b>${escapeHtml(item.name)} · $${escapeHtml(item.ticker)}</b><small>${escapeHtml(item.providerName)} · ${escapeHtml(item.network)} · ${escapeHtml(when)}</small></span>${action}</article>`;
+    const ca = address ? `<span class="launch-ca"><code title="${escapeHtml(address)}">${escapeHtml(address)}</code><button type="button" data-copy-ca="${escapeHtml(address)}" aria-label="Copy contract address for ${escapeHtml(item.name)}">Copy CA</button></span>` : "";
+    const action = url ? `<a href="${escapeHtml(url)}" target="_blank" rel="noopener noreferrer" aria-label="View ${escapeHtml(item.name)} on explorer">View ↗</a>` : "<i>Confirmed</i>";
+    return `<article class="launched-item${url ? " is-clickable" : ""}"${url ? ` data-launch-url="${escapeHtml(url)}" role="link" tabindex="0"` : ""}><img src="${escapeHtml(provider.logo)}" alt=""><span class="launch-info"><b>${escapeHtml(item.name)} · ${escapeHtml(item.ticker)}</b><small>${escapeHtml(item.providerName)} · ${escapeHtml(item.network)} · ${escapeHtml(when)}</small>${ca}</span><span class="launch-action">${action}</span></article>`;
   }).join("");
 }
+async function copyLaunchAddress(address, button) {
+  try {
+    await navigator.clipboard.writeText(address);
+    const previous = button.textContent;
+    button.textContent = "Copied";
+    showToast("Contract address copied.");
+    setTimeout(() => { button.textContent = previous; }, 1600);
+  } catch {
+    showToast("Could not copy automatically. Press and hold the address to copy it.");
+  }
+}
+$("#launchedGrid")?.addEventListener("click", (event) => {
+  const copyButton = event.target.closest("[data-copy-ca]");
+  if (copyButton) {
+    event.preventDefault();
+    event.stopPropagation();
+    copyLaunchAddress(copyButton.dataset.copyCa, copyButton);
+    return;
+  }
+  if (event.target.closest("a")) return;
+  const card = event.target.closest("[data-launch-url]");
+  if (card) window.open(card.dataset.launchUrl, "_blank", "noopener,noreferrer");
+});
+$("#launchedGrid")?.addEventListener("keydown", (event) => {
+  if (event.target.matches("[data-launch-url]") && (event.key === "Enter" || event.key === " ")) {
+    event.preventDefault();
+    window.open(event.target.dataset.launchUrl, "_blank", "noopener,noreferrer");
+  }
+});
 function recordLaunch(providerId, result) {
   try {
     const providerButton = providers.find((item) => item.dataset.provider === providerId);
     if (!providerButton) return;
-    const item = { provider: providerId, providerName: providerButton.dataset.name, network: providerButton.dataset.chain, name: $("#marketName").value.trim(), ticker: $("#ticker").value.trim().toUpperCase(), url: result?.url || "", createdAt: new Date().toISOString() };
+    const address = result?.address || addressFromLaunch(result);
+    const item = { provider: providerId, providerName: providerButton.dataset.name, network: providerButton.dataset.chain, name: $("#marketName").value.trim(), ticker: $("#ticker").value.trim().toUpperCase(), address, url: result?.url || explorerForLaunch({ network: providerButton.dataset.chain }, address), createdAt: new Date().toISOString() };
     const history = deviceLaunchHistory().filter((entry) => !(item.url && entry.url === item.url));
     history.unshift(item);
     localStorage.setItem(launchHistoryKey, JSON.stringify(history.slice(0, 24)));
@@ -679,7 +729,7 @@ async function launchStonk() {
   const signed = await wallet.signTransaction(transaction);
   const submit = await fetch(`${apiUrl}/v1/launches/submit`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ provider: "stonkfun", signedQuote: prepared.signedQuote, signedTransaction: bytesToBase64(signed.serialize()), logo: imageData }) });
   const result = await submit.json(); if (!submit.ok) throw new Error(readableError(result, "Launch submission failed."));
-  return { message: `StonkFun launch submitted${result.paymentSignature ? ` · ${shortAddress(result.paymentSignature)}` : ""}.`, url: result.url || result.explorerUrl };
+  return { message: `StonkFun launch submitted${result.paymentSignature ? ` · ${shortAddress(result.paymentSignature)}` : ""}.`, address: result.mint || result.token || result.address || "", url: result.url || result.explorerUrl };
 }
 
 async function launchPump() {
@@ -690,7 +740,7 @@ async function launchPump() {
   const body = { provider: "pumpfun", idempotencyKey: `${launchAttemptId}:pumpfun`, creatorWallet: connection.address, name: $("#marketName").value, ticker: $("#ticker").value, description: $("#description").value || "Launch from Anything", imageUrl, xUrl: pumpXUrl, pairSymbol: $("#pairSelect").value, creatorFeeBps: 0, cashback: $("#pumpRewards").value === "holders", mayhemMode: $("#pumpMayhem").checked, links: { website: $("#sharedWebsite").value.trim(), x: $("#sharedX").value.trim(), telegram: $("#sharedTelegram").value.trim() } };
   const response = await fetch(`${apiUrl}/v1/launches/prepare`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body) });
   const result = await response.json(); if (!response.ok) throw new Error(readableError(result, "Pump.fun launch failed."));
-  return { message: `Pump.fun launch submitted${result.mint ? ` · ${shortAddress(result.mint)}` : ""}.`, url: result.url || result.explorerUrl };
+  return { message: `Pump.fun launch submitted${result.mint ? ` · ${shortAddress(result.mint)}` : ""}.`, address: result.mint || result.token || result.address || "", url: result.url || result.explorerUrl };
 }
 
 async function launchPons() {
@@ -751,7 +801,7 @@ async function launchPons() {
     const routeHash = await walletClient.writeContract({ address: PONS_FACTORY, abi: factoryAbi, functionName: "transferCreatorFeeRecipient", args: [token, distributor] });
     await publicClient.waitForTransactionReceipt({ hash: routeHash, confirmations: 1, timeout: 180000 });
   }
-  return { message: `Pons launch confirmed${token ? ` · ${shortAddress(token)}` : ""}.`, url: `https://robinhoodchain.blockscout.com/tx/${hash}` };
+  return { message: `Pons launch confirmed${token ? ` · ${shortAddress(token)}` : ""}.`, address: token, url: token ? `https://robinhoodchain.blockscout.com/token/${token}` : `https://robinhoodchain.blockscout.com/tx/${hash}` };
 }
 
 async function switchToBnb() {
@@ -797,7 +847,7 @@ async function launchFlap() {
   $("#intentMessage").textContent = "Confirm the Flap launch in your wallet…";
   const hash = await walletClient.writeContract({ address: FLAP_PORTAL, abi: flapPortalAbi, functionName: "newTokenV6", args: [params], value: quoteToken === ZERO ? quoteAmt : 0n });
   const receipt = await publicClient.waitForTransactionReceipt({ hash, confirmations: 1, timeout: 180000 }); if (receipt.status !== "success") throw new Error("Flap launch transaction reverted.");
-  return { message: `Flap token live · ${shortAddress(vanity.address)}.`, url: `https://flap.sh/bnb/${vanity.address}` };
+  return { message: `Flap token live · ${shortAddress(vanity.address)}.`, address: vanity.address, url: `https://flap.sh/bnb/${vanity.address}` };
 }
 
 async function launchFourMeme() {
@@ -829,7 +879,7 @@ async function launchFourMeme() {
   const hash = await walletClient.writeContract({ address: prepared.coreAddress, abi: fourMemeAbi, functionName: "createToken", args: [prepared.createArg, prepared.signature], value });
   const receipt = await publicClient.waitForTransactionReceipt({ hash, confirmations: 1, timeout: 180000 });
   if (receipt.status !== "success") throw new Error("Four.meme launch transaction reverted.");
-  return { message: "Four.meme token launch confirmed.", url: `https://bscscan.com/tx/${hash}` };
+  return { message: "Four.meme token launch confirmed.", address: prepared.tokenAddress || prepared.token || prepared.address || "", url: prepared.tokenAddress || prepared.token || prepared.address ? `https://four.meme/token/${prepared.tokenAddress || prepared.token || prepared.address}` : `https://bscscan.com/tx/${hash}` };
 }
 
 async function launchEmber() {
@@ -846,7 +896,7 @@ async function launchEmber() {
   const signed = await wallet.signTransaction(transaction);
   const submit = await fetch(`${apiUrl}/v1/launches/submit`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ provider: "ember", launchId: prepared.launchId, signedTransaction: bytesToBase64(signed.serialize()) }) });
   const result = await submit.json(); if (!submit.ok) throw new Error(result.error || "Ember launch submission failed.");
-  return { message: `Ember token live${result.mint ? ` · ${shortAddress(result.mint)}` : ""}.`, url: result.mint || result.pool ? `https://embercurve.fun/t/${result.mint || result.pool}` : undefined };
+  return { message: `Ember token live${result.mint ? ` · ${shortAddress(result.mint)}` : ""}.`, address: result.mint || result.pool || "", url: result.mint || result.pool ? `https://embercurve.fun/t/${result.mint || result.pool}` : undefined };
 }
 
 async function launchCurrentProvider() {
