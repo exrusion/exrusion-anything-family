@@ -10,7 +10,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=Instrument+Serif:ital@0;1&family=Manrope:wght@400;500;600;700;800&family=Nunito+Sans:wght@500;600;700;800;900&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Sora:wght@400;500;600;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="/styles.css?v=20260915-docs-page">
+  <link rel="stylesheet" href="/styles.css?v=20260915-launch-demo">
   <link rel="stylesheet" href="/brand-logos.css?v=20260914-fourmeme">
   <link rel="stylesheet" href="/wallet-selector.css">
 </head>
@@ -26,6 +26,11 @@
     <section class="intro">
       <div><p class="kicker">Six launchpads. One workspace.</p><h1>Choose a rail.<br><span>Launch from here.</span></h1></div>
       <p class="intro-copy">Launch once or prepare the same token for every rail you select. Provider fees stay with each launchpad; Anything takes no cut.</p>
+    </section>
+
+    <section class="demo-section" aria-labelledby="demoTitle">
+      <div class="demo-heading"><div><p class="kicker">Product demo</p><h2 id="demoTitle">See Anything in action</h2></div><p>Enter your token once. Choose where it launches.</p></div>
+      <anything-launch-demo aria-label="Animated demonstration of an Anything multi-launch"></anything-launch-demo>
     </section>
 
     <section class="launch-mode" aria-label="Launch mode">
@@ -155,6 +160,6 @@
     </section>
   </div>
   <div class="toast" id="toast" role="status"></div>
-  <script src="/config.js"></script><script type="module" src="/app.js?v=20260915-previous-launches"></script>
+  <script type="module" src="/AnythingLaunchDemo.js?v=20260915-launch-demo"></script><script src="/config.js"></script><script type="module" src="/app.js?v=20260915-previous-launches"></script>
 </body>
 </html>
