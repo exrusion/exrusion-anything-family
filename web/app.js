@@ -140,9 +140,25 @@ function base64ToBytes(value) { return Uint8Array.from(atob(value), (char) => ch
 function escapeHtml(value) { return String(value || "").replace(/[&<>"']/g, (char) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[char]); }
 
 const launchHistoryKey = "anything.family.launched.v1";
-function launchHistory() {
+const previousLaunches = [
+  { id: "test-stonkfun", provider: "stonkfun", providerName: "StonkFun", network: "Solana", name: "TEST", ticker: "TEST", historical: true },
+  { id: "test-pumpfun", provider: "pumpfun", providerName: "Pump.fun", network: "Solana", name: "TEST", ticker: "TEST", historical: true },
+  { id: "test-ember", provider: "ember", providerName: "Ember", network: "Solana", name: "TEST", ticker: "TEST", historical: true },
+  { id: "test-pons", provider: "pons", providerName: "Pons", network: "Robinhood Chain", name: "TEST", ticker: "TEST", historical: true },
+  { id: "test-flap", provider: "flap", providerName: "Flap", network: "BNB Chain", name: "TEST", ticker: "TEST", historical: true },
+];
+function deviceLaunchHistory() {
   try { const value = JSON.parse(localStorage.getItem(launchHistoryKey) || "[]"); return Array.isArray(value) ? value : []; }
   catch { return []; }
+}
+function launchHistory() {
+  const seen = new Set();
+  return [...deviceLaunchHistory(), ...previousLaunches].filter((item) => {
+    const key = item.id || item.url || `${item.provider}:${item.name}:${item.ticker}`;
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
 }
 function renderLaunchHistory() {
   const grid = $("#launchedGrid");
@@ -155,7 +171,8 @@ function renderLaunchHistory() {
   grid.innerHTML = history.map((item) => {
     const provider = providerContent[item.provider] || providerContent.stonkfun;
     const action = item.url ? `<a href="${escapeHtml(item.url)}" target="_blank" rel="noopener">View ↗</a>` : "<i>Confirmed</i>";
-    return `<article class="launched-item"><img src="${escapeHtml(provider.logo)}" alt=""><span><b>${escapeHtml(item.name)} · $${escapeHtml(item.ticker)}</b><small>${escapeHtml(item.providerName)} · ${escapeHtml(item.network)} · ${escapeHtml(new Date(item.createdAt).toLocaleString())}</small></span>${action}</article>`;
+    const when = item.historical ? "Previous confirmed launch" : new Date(item.createdAt).toLocaleString();
+    return `<article class="launched-item"><img src="${escapeHtml(provider.logo)}" alt=""><span><b>${escapeHtml(item.name)} · $${escapeHtml(item.ticker)}</b><small>${escapeHtml(item.providerName)} · ${escapeHtml(item.network)} · ${escapeHtml(when)}</small></span>${action}</article>`;
   }).join("");
 }
 function recordLaunch(providerId, result) {
@@ -163,7 +180,7 @@ function recordLaunch(providerId, result) {
     const providerButton = providers.find((item) => item.dataset.provider === providerId);
     if (!providerButton) return;
     const item = { provider: providerId, providerName: providerButton.dataset.name, network: providerButton.dataset.chain, name: $("#marketName").value.trim(), ticker: $("#ticker").value.trim().toUpperCase(), url: result?.url || "", createdAt: new Date().toISOString() };
-    const history = launchHistory().filter((entry) => !(item.url && entry.url === item.url));
+    const history = deviceLaunchHistory().filter((entry) => !(item.url && entry.url === item.url));
     history.unshift(item);
     localStorage.setItem(launchHistoryKey, JSON.stringify(history.slice(0, 24)));
     renderLaunchHistory();
