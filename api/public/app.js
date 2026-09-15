@@ -16,6 +16,7 @@ let launchAttemptId = "";
 let launchAttemptCreatedAt = "";
 const providerDrafts = new Map();
 const multiResults = new Map();
+const HANDOFF_PROVIDERS = new Set(["bags", "clanker", "arcpad", "long"]);
 const announcedEvmWallets = new Map();
 const walletConnections = { solana: null, pons: null, flap: null };
 let Transaction;
@@ -393,9 +394,9 @@ async function normalizeTokenImage(file) {
 }
 
 function currentMultiIds() { return [...document.querySelectorAll('.multi-options input:checked')].map((input) => input.value); }
-function walletRouteForProvider(providerId) { return ["stonkfun", "pumpfun", "ember", "bags"].includes(providerId) ? "solana" : providerId === "fourmeme" ? "flap" : ["clanker", "arcpad", "long"].includes(providerId) ? "external" : providerId; }
+function walletRouteForProvider(providerId) { return HANDOFF_PROVIDERS.has(providerId) ? "external" : ["stonkfun", "pumpfun", "ember"].includes(providerId) ? "solana" : providerId === "fourmeme" ? "flap" : providerId; }
 function providerForWalletRoute(route) { return route === "solana" ? "pumpfun" : route; }
-function selectedWalletRoutes(ids = currentMultiIds()) { return [...new Set(ids.map(walletRouteForProvider))]; }
+function selectedWalletRoutes(ids = currentMultiIds()) { return [...new Set(ids.map(walletRouteForProvider).filter((route) => route !== "external"))]; }
 function linkValue(providerSelector, sharedSelector) {
   return $(providerSelector).value.trim() || (launchMode === "multi" ? $(sharedSelector).value.trim() : "");
 }
@@ -525,13 +526,15 @@ function activateConnection(route) {
 function updateWalletUi() {
   const routes = launchMode === "multi" ? selectedWalletRoutes() : [walletRouteForProvider(selected.dataset.provider)];
   if (launchMode === "single" && routes[0] === "external") {
-    document.querySelectorAll("[data-wallet]").forEach((button) => { button.textContent = "Wallet at provider"; });
+    document.querySelectorAll("[data-wallet]").forEach((button) => { button.textContent = "Wallet at provider"; button.disabled = true; });
     return;
   }
   const connected = routes.filter((route) => walletConnections[route]).length;
   document.querySelectorAll("[data-wallet]").forEach((button) => {
-    if (launchMode === "multi" && routes.length > 1) button.textContent = connected ? `${connected}/${routes.length} wallets` : "Connect wallets";
+    if (launchMode === "multi" && routes.length === 0) button.textContent = "Wallets connect at providers";
+    else if (launchMode === "multi" && routes.length > 1) button.textContent = connected ? `${connected}/${routes.length} wallets` : "Connect wallets";
     else button.textContent = walletConnections[routes[0]] ? shortAddress(walletConnections[routes[0]].address) : "Connect wallet";
+    button.disabled = launchMode === "multi" && routes.length === 0;
   });
   ["solana", "pons", "flap"].forEach((route) => {
     const status = $(`#${route}SignerStatus`);
@@ -574,7 +577,9 @@ async function connectNextWallet() {
   if (launchMode !== "multi") return connectWallet(selected.dataset.provider);
   const ids = currentMultiIds();
   if (!ids.length) throw new Error("Select launchpads first.");
-  const route = selectedWalletRoutes(ids).find((item) => !walletConnections[item]);
+  const routes = selectedWalletRoutes(ids);
+  if (!routes.length) { showToast("Selected handoff routes connect wallets on their provider pages."); return null; }
+  const route = routes.find((item) => !walletConnections[item]);
   if (!route) { showToast("All selected signer wallets are connected."); return activateConnection(walletRouteForProvider(selected.dataset.provider)); }
   return connectWallet(providerForWalletRoute(route));
 }
@@ -667,7 +672,7 @@ function setLaunchMode(mode) {
   $("#multiSharedIntro").hidden = mode !== "multi";
   $("#multiSharedDetails").hidden = mode !== "multi";
   $("#tokenDetailsTitle").textContent = mode === "multi" ? "Shared token details" : "Token details";
-  $("#formHint").textContent = mode === "multi" ? "One form · up to six direct launches" : providerContent[selected.dataset.provider].hint;
+  $("#formHint").textContent = mode === "multi" ? "One form · up to ten launch routes" : providerContent[selected.dataset.provider].hint;
   $("#sharedX").required = false;
   $("#sharedXLabel").textContent = "X / Twitter";
   $("#reviewButtonText").textContent = mode === "multi" ? "Review selected launches" : "Review launch";
@@ -677,7 +682,7 @@ function setLaunchMode(mode) {
 
 function updateMultiWalletRouting(ids) {
   const routes = selectedWalletRoutes(ids);
-  $("#multiWalletRouting").hidden = ids.length === 0;
+  $("#multiWalletRouting").hidden = routes.length === 0;
   document.querySelectorAll("[data-signer-route]").forEach((button) => { button.hidden = !routes.includes(button.dataset.signerRoute); });
   updateWalletUi();
 }
@@ -791,7 +796,7 @@ function updateQueueStatus(id, state, detail = "") {
   const row = document.querySelector(`[data-queue-provider="${id}"]`); if (!row) return;
   row.dataset.state = state;
   const status = row.querySelector(`[data-queue-status="${id}"]`);
-  status.textContent = state === "running" ? "Waiting" : state === "success" ? "Done" : state === "failed" ? "Failed" : status.textContent;
+  status.textContent = state === "running" ? "Waiting" : state === "success" ? "Done" : state === "opened" ? "Opened" : state === "failed" ? "Failed" : status.textContent;
   status.title = detail;
 }
 
@@ -802,7 +807,7 @@ $("#launchForm").addEventListener("submit", (event) => {
   const ticker = $("#ticker").value.trim().toUpperCase();
   $("#summaryName").textContent = $("#marketName").value.trim(); $("#summaryTicker").textContent = "$" + ticker;
   if (launchMode === "multi") {
-    const launchOrder = ["stonkfun", "pumpfun", "ember", "pons", "flap", "fourmeme"];
+    const launchOrder = ["stonkfun", "pumpfun", "ember", "pons", "flap", "fourmeme", "bags", "clanker", "arcpad", "long"];
     const ids = currentMultiIds().sort((a, b) => launchOrder.indexOf(a) - launchOrder.indexOf(b));
     if (ids.length < 1) { $("#multiStatus").textContent = "Choose at least one launchpad first."; showToast("Choose at least one launchpad."); return; }
     const issues = multiReadiness(ids);
@@ -812,9 +817,12 @@ $("#launchForm").addEventListener("submit", (event) => {
     $("#summaryLogo").src = providerContent[ids[0]].logo; $("#summaryLogo").alt = "Selected launchpads";
     $("#summaryProvider").textContent = `${ids.length} launchpad${ids.length === 1 ? "" : "s"}`;
     $("#singleSummary").hidden = true; $("#launchQueue").hidden = false;
-    $("#riskNote").textContent = "One button starts every selected launch. Each network still shows its own wallet confirmation, and completed launches cannot be reversed.";
-    $("#launchNow").textContent = ids.length === 1 ? "Start selected launch" : `Start all ${ids.length} launches`;
-    $("#intentMessage").textContent = `Keep this window open while ${ids.length} selected launch${ids.length === 1 ? " is" : "es are"} prepared.`;
+    const handoffCount = ids.filter((id) => HANDOFF_PROVIDERS.has(id)).length;
+    $("#riskNote").textContent = handoffCount
+      ? "Direct rails request wallet approval here. Handoff rails open verified provider tabs and are complete only after you review and sign there."
+      : "Each network shows its own wallet confirmation, and completed launches cannot be reversed.";
+    $("#launchNow").textContent = ids.length === 1 ? "Start selected route" : `Start all ${ids.length} routes`;
+    $("#intentMessage").textContent = `Keep this window open while ${ids.length} selected route${ids.length === 1 ? " is" : "s are"} prepared.`;
   } else {
     $("#reviewTitle").textContent = "Review launch";
     $("#summaryLogo").src = providerContent[selected.dataset.provider].logo; $("#summaryLogo").alt = `${selected.dataset.name} logo`;
@@ -1021,9 +1029,9 @@ function openProviderWindow(url) {
   return providerWindow;
 }
 
-async function launchBags() {
+async function launchBags(reservedWindow = null) {
   if (!imageData) throw new Error("Add a token image first.");
-  const providerWindow = openProviderWindow("about:blank");
+  const providerWindow = reservedWindow || openProviderWindow("about:blank");
   try {
     const imageUrl = await uploadTokenImage("Preparing your Bags launch intent…");
     const url = new URL("https://bags.fm/launch");
@@ -1047,7 +1055,7 @@ async function launchBags() {
   }
 }
 
-function launchProviderHandoff(providerId) {
+function launchProviderHandoff(providerId, reservedWindow = null) {
   const routes = {
     clanker: { url: "https://www.clanker.world/deploy", message: "Clanker’s official Base launch page opened. Finish the vault, rewards and liquidity settings there." },
     arcpad: { url: "https://arcpad.meme/create", message: "ArcPad’s official Arc launch page opened. Verify the early-access network details before signing." },
@@ -1055,18 +1063,19 @@ function launchProviderHandoff(providerId) {
   };
   const route = routes[providerId];
   if (!route) throw new Error("Provider handoff is unavailable.");
-  openProviderWindow(route.url);
+  const providerWindow = reservedWindow || openProviderWindow(route.url);
+  if (reservedWindow) providerWindow.location.replace(route.url);
   return { external: true, message: route.message };
 }
 
-async function launchCurrentProvider() {
-  return selected.dataset.provider === "stonkfun" ? launchStonk() : selected.dataset.provider === "pumpfun" ? launchPump() : selected.dataset.provider === "pons" ? launchPons() : selected.dataset.provider === "flap" ? launchFlap() : selected.dataset.provider === "fourmeme" ? launchFourMeme() : selected.dataset.provider === "ember" ? launchEmber() : selected.dataset.provider === "bags" ? launchBags() : launchProviderHandoff(selected.dataset.provider);
+async function launchCurrentProvider(reservedWindow = null) {
+  return selected.dataset.provider === "stonkfun" ? launchStonk() : selected.dataset.provider === "pumpfun" ? launchPump() : selected.dataset.provider === "pons" ? launchPons() : selected.dataset.provider === "flap" ? launchFlap() : selected.dataset.provider === "fourmeme" ? launchFourMeme() : selected.dataset.provider === "ember" ? launchEmber() : selected.dataset.provider === "bags" ? launchBags(reservedWindow) : launchProviderHandoff(selected.dataset.provider, reservedWindow);
 }
 
-async function launchProviderById(id) {
+async function launchProviderById(id, reservedWindow = null) {
   const providerButton = providers.find((item) => item.dataset.provider === id);
   await selectProvider(providerButton);
-  return launchCurrentProvider();
+  return launchCurrentProvider(reservedWindow);
 }
 
 $("#launchNow").addEventListener("click", async () => {
@@ -1074,6 +1083,13 @@ $("#launchNow").addEventListener("click", async () => {
   if (launchMode === "multi") {
     let successCount = [...multiResults.values()].filter((result) => result.ok).length;
     const failures = [];
+    const providerWindows = new Map();
+    const providerWindowErrors = new Map();
+    const directMultiIds = activeMultiIds.filter((id) => !HANDOFF_PROVIDERS.has(id));
+    activeMultiIds.filter((id) => HANDOFF_PROVIDERS.has(id) && !multiResults.get(id)?.ok).forEach((id) => {
+      try { providerWindows.set(id, openProviderWindow("about:blank")); }
+      catch (error) { providerWindowErrors.set(id, error); }
+    });
     for (let index = 0; index < activeMultiIds.length; index++) {
       const id = activeMultiIds[index];
       if (multiResults.get(id)?.ok) continue;
@@ -1081,17 +1097,27 @@ $("#launchNow").addEventListener("click", async () => {
       updateQueueStatus(id, "running"); button.textContent = `Approve ${index + 1} of ${activeMultiIds.length}: ${providerButton.dataset.name}`;
       $("#intentMessage").textContent = `Preparing ${providerButton.dataset.name}. Confirm only after checking the wallet network and amount.`;
       try {
-        const result = await launchProviderById(id);
+        if (providerWindowErrors.has(id)) throw providerWindowErrors.get(id);
+        const result = await launchProviderById(id, providerWindows.get(id));
         multiResults.set(id, { ok: true, result });
-        recordLaunch(id, result, activeMultiIds.length > 1 ? { id: launchAttemptId, index, size: activeMultiIds.length, createdAt: launchAttemptCreatedAt } : null);
+        if (!result.external) recordLaunch(id, result, directMultiIds.length > 1 ? { id: launchAttemptId, index: directMultiIds.indexOf(id), size: directMultiIds.length, createdAt: launchAttemptCreatedAt } : null);
         successCount++;
-        updateQueueStatus(id, "success", result.message);
+        updateQueueStatus(id, result.external ? "opened" : "success", result.message);
       } catch (error) {
+        const providerWindow = providerWindows.get(id);
+        if (providerWindow && !providerWindow.closed) providerWindow.close();
         const message = readableError(error); multiResults.set(id, { ok: false, message }); failures.push(`${providerButton.dataset.name}: ${message}`); updateQueueStatus(id, "failed", message);
       }
     }
+    const completed = [...multiResults.values()].filter((entry) => entry.ok);
+    const submittedCount = completed.filter((entry) => !entry.result.external).length;
+    const openedCount = completed.filter((entry) => entry.result.external).length;
     if (successCount === activeMultiIds.length) {
-      $("#intentMessage").textContent = `All ${activeMultiIds.length} launches were submitted successfully.`; button.textContent = `${activeMultiIds.length} launches submitted`; showToast(`All ${activeMultiIds.length} launches submitted.`);
+      $("#intentMessage").textContent = openedCount
+        ? `${submittedCount} direct launch${submittedCount === 1 ? "" : "es"} submitted. ${openedCount} verified provider tab${openedCount === 1 ? "" : "s"} opened—finish and sign there.`
+        : `All ${submittedCount} launches were submitted successfully.`;
+      button.textContent = openedCount ? `${activeMultiIds.length} routes started` : `${submittedCount} launches submitted`;
+      showToast(openedCount ? "Selected routes started. Finish the opened provider tabs." : `All ${submittedCount} launches submitted.`);
     } else {
       $("#intentMessage").textContent = `${successCount} of ${activeMultiIds.length} succeeded. ${failures.join(" ")}`;
       button.textContent = "Retry failed launches"; button.disabled = false; showToast(`${successCount} of ${activeMultiIds.length} launches succeeded.`);

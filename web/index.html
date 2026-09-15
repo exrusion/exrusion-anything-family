@@ -40,7 +40,7 @@
         <button class="mode-button" type="button" data-mode="multi"><span>Multi-launch</span><small>Choose your rails</small></button>
       </div>
       <div class="multi-picker" id="multiPicker" hidden>
-        <div class="multi-picker-title"><span><b>Choose 1–6 launchpads</b><small>Select the rails, enter the token once, then start every selected launch.</small></span><button id="selectAllRails" type="button">Select all 6</button></div>
+        <div class="multi-picker-title"><span><b>Choose 1–10 launchpads</b><small>Select the rails, enter the token once, then start every selected route.</small></span><button id="selectAllRails" type="button">Select all 10</button></div>
         <div class="multi-options">
           <label><input type="checkbox" value="stonkfun"><span><img src="https://www.stonkfun.xyz/stonk-mark.svg" alt="">StonkFun</span></label>
           <label><input type="checkbox" value="pumpfun"><span><img src="https://pump.fun/pump-logomark.svg" alt="">Pump.fun</span></label>
@@ -48,10 +48,14 @@
           <label><input type="checkbox" value="flap"><span><img src="https://flap.sh/icon.svg" alt="">Flap</span></label>
           <label><input type="checkbox" value="ember"><span><img src="https://embercurve.fun/apple-touch-icon.png" alt="">Ember</span></label>
           <label><input type="checkbox" value="fourmeme"><span><img src="https://four.meme/apple-touch-icon.png" alt="">Four.meme</span></label>
+          <label><input type="checkbox" value="bags"><span><img src="https://bags.fm/favicon.ico" alt="" onerror="this.remove()">Bags</span></label>
+          <label><input type="checkbox" value="clanker"><span><img src="https://www.clanker.world/favicon.ico" alt="" onerror="this.remove()">Clanker</span></label>
+          <label><input type="checkbox" value="arcpad"><span><img src="https://arcpad.meme/favicon.ico" alt="" onerror="this.remove()">ArcPad</span></label>
+          <label><input type="checkbox" value="long"><span><img src="https://long.supply/favicon.ico" alt="" onerror="this.remove()">long.supply</span></label>
         </div>
         <p id="multiStatus">0 launchpads selected</p>
         <div class="multi-wallet-routing" id="multiWalletRouting" hidden>
-          <div><b>Signer wallets</b><small>Connect once per selected network. Each wallet still shows its own final approval.</small></div>
+          <div><b>Signer wallets</b><small>Connect once per direct-launch network. Handoff routes connect on their verified provider page.</small></div>
           <div class="signer-routes">
             <button type="button" class="signer-route" data-signer-route="solana" data-connect-provider="pumpfun"><span class="signer-icon">◎</span><span><b>Solana</b><small>StonkFun · Pump.fun · Ember</small></span><i id="solanaSignerStatus">Connect</i></button>
             <button type="button" class="signer-route" data-signer-route="pons" data-connect-provider="pons"><span class="signer-icon">M</span><span><b>Robinhood Chain</b><small>MetaMask recommended · Pons</small></span><i id="ponsSignerStatus">Connect</i></button>
