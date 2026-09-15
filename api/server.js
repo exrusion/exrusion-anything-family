@@ -2,6 +2,7 @@ import http from "node:http";
 import crypto from "node:crypto";
 import { readFile } from "node:fs/promises";
 import { fileURLToPath } from "node:url";
+import { AbiCoder, Contract, JsonRpcProvider, ZeroAddress, ZeroHash, parseEther, parseUnits } from "ethers";
 
 const port = Number(process.env.PORT || 8080);
 const startedAt = new Date().toISOString();
@@ -13,6 +14,10 @@ const pumpAdapterUrl = String(process.env.PUMPFUN_ADAPTER_URL || "").replace(/\/
 const pumpAdapterSecret = String(process.env.PUMPFUN_ADAPTER_SECRET || "");
 const emberApiBase = String(process.env.EMBER_API_BASE || "https://embercurve.fun").replace(/\/$/, "");
 const flapApiBase = String(process.env.FLAP_API_BASE || "https://flap.sh").replace(/\/$/, "");
+const fourMemeApiBase = String(process.env.FOURMEME_API_BASE || "https://four.meme/meme-api/v1").replace(/\/$/, "");
+const fourMemeRegistry = "0x912CEf0C3aE9Ab6eB3Ec87cab69371cFb317Ab94";
+const fourMemeTemplateId = "1778027615723";
+const bscRpcUrls = (process.env.BSC_RPC_URLS || "https://bsc-dataseed.binance.org,https://bsc-rpc.publicnode.com,https://1rpc.io/bnb").split(",").map((value) => value.trim()).filter(Boolean);
 const allowedOrigins = new Set(
   (process.env.ALLOWED_ORIGINS || "https://anything.family,https://www.anything.family,https://exrusion-anything-family.vercel.app,http://localhost:3000")
     .split(",")
@@ -84,6 +89,16 @@ const providers = {
     feeDisplay: "2.00% default selected trade tax; 1%, 2% and 3% available",
     execution: "wallet_signed",
   },
+  fourmeme: {
+    id: "fourmeme",
+    name: "Four.meme",
+    network: "BNB Chain",
+    categories: ["memes", "bonding-curve", "pancakeswap"],
+    providerFeeBps: null,
+    feeType: "native_launch_fee",
+    feeDisplay: "Four.meme launch fee plus BNB network gas",
+    execution: "wallet_signed",
+  },
 };
 
 const launchIntents = new Map();
@@ -141,7 +156,7 @@ function errorText(value, fallback = "Provider request failed") {
   if (!value) return fallback;
   if (typeof value === "string") return value;
   if (Array.isArray(value)) return value.map((item) => errorText(item, "")).filter(Boolean).join(" ") || fallback;
-  if (typeof value === "object") return errorText(value.message || value.error || value.details || value.reason, fallback);
+  if (typeof value === "object") return errorText(value.message || value.msg || value.error || value.details || value.reason, fallback);
   return String(value);
 }
 
@@ -152,7 +167,10 @@ async function upstream(url, options = {}) {
     const response = await fetch(url, { ...options, signal: controller.signal });
     const text = await response.text();
     let body;
-    try { body = text ? JSON.parse(text) : {}; } catch { body = { error: text || "Invalid upstream response" }; }
+    try { body = text ? JSON.parse(text) : {}; } catch {
+      const looksLikeHtml = /^\s*<!doctype|^\s*<html/i.test(text);
+      body = { error: looksLikeHtml ? "Four.meme temporarily rejected the adapter request. Please retry in a moment." : (text || "Invalid upstream response") };
+    }
     if (!response.ok) {
       const error = new Error(errorText(body, `Provider returned ${response.status}`));
       error.status = response.status;
@@ -191,6 +209,75 @@ function imageBlob(dataUrl) {
     throw error;
   }
   return { blob: new Blob([bytes], { type: match[1] }), type: match[1] };
+}
+
+function fourMemeResult(payload, step) {
+  if (payload?.code === "0" || payload?.code === 0) return payload.data;
+  const error = new Error(errorText(payload, `Four.meme ${step} failed.`));
+  error.status = 502;
+  throw error;
+}
+
+function toHexPayload(value) {
+  const text = String(value || "");
+  if (text.startsWith("0x")) return text;
+  if (/^[0-9a-fA-F]+$/.test(text)) return `0x${text}`;
+  return `0x${Buffer.from(text, "base64").toString("hex")}`;
+}
+
+const openFourRegistryAbi = [
+  "function openFourTool() view returns (address)",
+  "function openFourCore() view returns (address)",
+];
+const paramTuple = "(string name,string abiType,uint8 decimals,bool optional,string title,string defaultValue,string hint,string minValue,string maxValue)";
+const schemaTuple = `(string kind,uint8 version,${paramTuple}[] params)`;
+const openFourToolsAbi = [`function getPresetEncodeSchemas(uint256 presetId) view returns (${schemaTuple} tokenSchema,${schemaTuple} vaultSchema,${schemaTuple} curveSchema,${schemaTuple} tradeSchema,${schemaTuple} migrateSchema,${schemaTuple} customDataSchema)`];
+const abiCoder = AbiCoder.defaultAbiCoder();
+let openFourRuntimePromise;
+
+function moduleDefault(desc, accountAddress) {
+  const name = String(desc.name || "").toLowerCase();
+  const raw = String(desc.defaultValue || "").trim();
+  if (raw) {
+    if (desc.abiType === "bool") return raw === "true" || raw === "1";
+    if (desc.abiType === "address") return raw;
+    if (desc.abiType === "bytes") return raw === "0" ? "0x" : raw;
+    if (desc.abiType === "bytes32") return raw === "0" ? ZeroHash : raw;
+    return Number(desc.decimals || 0) > 0 ? parseUnits(raw, Number(desc.decimals)) : BigInt(raw);
+  }
+  if (desc.abiType === "address") return /(founder|creator|owner|receiver|beneficiary)/.test(name) ? accountAddress : ZeroAddress;
+  if (desc.abiType === "bool") return false;
+  if (desc.abiType === "bytes") return "0x";
+  if (desc.abiType === "bytes32") return ZeroHash;
+  if (desc.abiType === "string") return "";
+  return 0n;
+}
+
+function encodeOpenFourModule(schema, accountAddress) {
+  const params = Array.from(schema?.params || []);
+  if (!params.length) return "0x";
+  const tupleType = `(${params.map((item) => item.abiType).join(",")})`;
+  return abiCoder.encode([tupleType], [params.map((item) => moduleDefault(item, accountAddress))]);
+}
+
+async function loadOpenFourRuntime() {
+  if (!openFourRuntimePromise) {
+    openFourRuntimePromise = (async () => {
+      let lastError;
+      for (const rpcUrl of bscRpcUrls) {
+        try {
+          const provider = new JsonRpcProvider(rpcUrl, 56, { staticNetwork: true });
+          const registry = new Contract(fourMemeRegistry, openFourRegistryAbi, provider);
+          const [toolsAddress, coreAddress] = await Promise.all([registry.openFourTool(), registry.openFourCore()]);
+          const tools = new Contract(toolsAddress, openFourToolsAbi, provider);
+          const schemas = await tools.getPresetEncodeSchemas(fourMemeTemplateId);
+          return { coreAddress, schemas };
+        } catch (error) { lastError = error; }
+      }
+      throw new Error(`Four.meme BNB configuration is unavailable: ${lastError?.shortMessage || lastError?.message || "RPC unavailable"}`);
+    })().catch((error) => { openFourRuntimePromise = null; throw error; });
+  }
+  return openFourRuntimePromise;
 }
 
 const server = http.createServer(async (req, res) => {
@@ -265,9 +352,83 @@ const server = http.createServer(async (req, res) => {
         const bnb = catalog.chains?.find((chain) => Number(chain.chainId) === 56);
         return json(res, 200, { pairs: bnb?.quoteTokens || [] }, origin);
       }
+      if (provider === "fourmeme") return json(res, 200, { pairs: [{ symbol: "BNB", name: "BNB", address: "0x0000000000000000000000000000000000000000", decimals: 18 }] }, origin);
       return json(res, 400, { error: "provider_not_configured" }, origin);
     } catch (error) {
       return json(res, error.status || 502, error.body || { error: error.message || "provider_unavailable" }, origin);
+    }
+  }
+
+  if (req.method === "POST" && url.pathname === "/v1/fourmeme/nonce") {
+    try {
+      const body = await readBody(req);
+      const accountAddress = String(body.accountAddress || "");
+      if (!/^0x[a-fA-F0-9]{40}$/.test(accountAddress)) return json(res, 422, { error: "A valid BNB wallet address is required." }, origin);
+      const result = await upstream(`${fourMemeApiBase}/private/user/nonce/generate`, {
+        method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ accountAddress, verifyType: "LOGIN", networkCode: "BSC" }),
+      });
+      return json(res, 200, { nonce: fourMemeResult(result, "nonce request") }, origin);
+    } catch (error) {
+      return json(res, error.status || 502, error.body || { error: error.message || "fourmeme_nonce_failed" }, origin);
+    }
+  }
+
+  if (req.method === "POST" && url.pathname === "/v1/fourmeme/prepare") {
+    try {
+      const body = await readBody(req);
+      const accountAddress = String(body.accountAddress || "");
+      if (!/^0x[a-fA-F0-9]{40}$/.test(accountAddress) || !/^0x[a-fA-F0-9]+$/.test(String(body.loginSignature || ""))) {
+        return json(res, 422, { error: "A valid BNB wallet and login signature are required." }, origin);
+      }
+      const errors = validateIntent({ ...body, provider: "fourmeme" });
+      if (errors.length) return json(res, 422, { error: "validation_failed", details: errors }, origin);
+      const image = imageBlob(body.logo);
+      const login = await upstream(`${fourMemeApiBase}/private/user/login/dex`, {
+        method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({
+          region: "WEB", langType: "EN", loginIp: "", inviteCode: "", walletName: String(body.walletName || "Browser wallet").slice(0, 80),
+          verifyInfo: { address: accountAddress, networkCode: "BSC", signature: body.loginSignature, verifyType: "LOGIN" },
+        }),
+      });
+      const accessToken = fourMemeResult(login, "wallet login");
+      const uploadForm = new FormData();
+      uploadForm.append("file", image.blob, `token.${image.type.split("/")[1] || "webp"}`);
+      const upload = await upstream(`${fourMemeApiBase}/private/token/upload`, { method: "POST", headers: { "meme-web-access": accessToken }, body: uploadForm });
+      const imgUrl = fourMemeResult(upload, "image upload");
+      const config = await upstream(`${fourMemeApiBase}/public/token_template/config?templateId=${fourMemeTemplateId}`);
+      const symbols = fourMemeResult(config, "OpenFour template configuration");
+      if (!Array.isArray(symbols) || !symbols.length) throw new Error("Four.meme returned no OpenFour launch configuration.");
+      const raisedToken = symbols.find((item) => item?.symbol === "BNB") || symbols[0];
+      const { coreAddress, schemas } = await loadOpenFourRuntime();
+      const allowedLabels = ["Meme", "AI", "Defi", "Games", "Infra", "De-Sci", "Social", "Depin", "Charity", "Others"];
+      const label = allowedLabels.includes(body.label) ? body.label : "Meme";
+      const preSale = Math.max(0, Number(body.preSale || 0));
+      const createBody = {
+        templateId: fourMemeTemplateId,
+        name: body.name.trim(), shortName: body.ticker.trim().toUpperCase(), desc: String(body.description || "Launch from Anything").trim() || "Launch from Anything",
+        imgUrl, symbol: raisedToken.symbol, totalSupply: String(raisedToken.totalSupply), saleAmount: String(raisedToken.saleAmount), raisedAmount: String(raisedToken.raisedAmount),
+        presaleQuote: String(preSale), feePlan: true, label,
+        initParams: {
+          tokenParams: encodeOpenFourModule(schemas[0], accountAddress),
+          vaultParams: encodeOpenFourModule(schemas[1], accountAddress),
+          curveParams: encodeOpenFourModule(schemas[2], accountAddress),
+          tradeParams: encodeOpenFourModule(schemas[3], accountAddress),
+          migrateParams: encodeOpenFourModule(schemas[4], accountAddress),
+          customDataParams: encodeOpenFourModule(schemas[5], accountAddress),
+        },
+      };
+      if (body.links?.website) createBody.webUrl = String(body.links.website).slice(0, 300);
+      if (body.links?.x) createBody.twitterUrl = String(body.links.x).slice(0, 300);
+      if (body.links?.telegram) createBody.telegramUrl = String(body.links.telegram).slice(0, 300);
+      const created = await upstream(`${fourMemeApiBase}/private/token_template/token/create`, {
+        method: "POST", headers: { "meme-web-access": accessToken, "content-type": "application/json" }, body: JSON.stringify(createBody),
+      });
+      const result = fourMemeResult(created, "OpenFour launch preparation");
+      const payload = Array.isArray(result) ? result[0] : result;
+      if (!payload?.createArg || !payload?.signature) throw new Error("Four.meme did not return a launch transaction.");
+      const txValue = parseEther(String(raisedToken.createFee || "0")) + (raisedToken.symbol === "BNB" ? parseEther(String(preSale)) : 0n);
+      return json(res, 200, { createArg: toHexPayload(payload.createArg), signature: toHexPayload(payload.signature), tokenId: payload.tokenId || "", coreAddress, txValue: txValue.toString(), templateId: fourMemeTemplateId }, origin);
+    } catch (error) {
+      return json(res, error.status || (error.message === "payload_too_large" ? 413 : 502), error.body || { error: error.message || "fourmeme_prepare_failed" }, origin);
     }
   }
 
@@ -362,6 +523,7 @@ const server = http.createServer(async (req, res) => {
             idempotencyKey: body.idempotencyKey || crypto.randomUUID(), name: body.name.trim(),
             symbol: body.ticker.trim().toUpperCase(), description: String(body.description || "Launch from Anything").trim(),
             imageUrl: body.imageUrl, xUrl: body.xUrl, pairSymbol: body.pairSymbol,
+            creatorWallet: body.creatorWallet || undefined, links: body.links || {},
             creatorFeeBps: Math.max(0, Math.min(100, Number(body.creatorFeeBps || 0))), cashback: Boolean(body.cashback), mayhemMode: Boolean(body.mayhemMode), firstBuyPercent: 0,
           }),
         });

@@ -4,45 +4,54 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <title>Anything — One place to launch anything</title>
-  <meta name="description" content="Launch across StonkFun, Pump.fun, Pons, Flap and Ember from one wallet-ready interface.">
-  <link rel="icon" type="image/webp" href="/anything-logo.webp">
-  <link rel="apple-touch-icon" href="/anything-logo.webp">
+  <meta name="description" content="Launch across StonkFun, Pump.fun, Pons, Flap, Ember and Four.meme from one wallet-ready interface.">
+  <link rel="icon" type="image/webp" href="/anything-logo.webp?v=20260914-logo">
+  <link rel="apple-touch-icon" href="/anything-logo.webp?v=20260914-logo">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=Instrument+Serif:ital@0;1&family=Manrope:wght@400;500;600;700;800&family=Nunito+Sans:wght@500;600;700;800;900&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Sora:wght@400;500;600;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="/styles.css?v=20260914-mobile">
-  <link rel="stylesheet" href="/brand-logos.css">
+  <link rel="stylesheet" href="/styles.css?v=20260915-launched-openfour">
+  <link rel="stylesheet" href="/brand-logos.css?v=20260914-fourmeme">
   <link rel="stylesheet" href="/wallet-selector.css">
 </head>
 <body data-theme="stonkfun">
   <nav class="topbar">
-    <a class="brand" href="#launch" aria-label="Anything home"><span><img src="/anything-logo.webp" alt=""></span><b>anything</b><em>.family</em></a>
-    <div class="navlinks"><a class="active" href="#launch">Launch</a><a href="#routeGuide">How it works</a></div>
+    <a class="brand" href="#launch" aria-label="Anything home"><span><img src="/anything-logo.webp?v=20260914-logo" alt="Anything logo" width="46" height="46"></span><b>anything</b><em>.family</em></a>
+    <div class="navlinks"><a class="active" href="#launch">Launch</a><a href="#launched">Launched</a><a href="#routeGuide">How it works</a></div>
     <div class="status"><i></i><b id="apiStatus">Connecting routes</b></div>
     <button class="wallet" data-wallet>Connect wallet</button>
   </nav>
 
   <main id="launch">
     <section class="intro">
-      <div><p class="kicker">Five launchpads. One workspace.</p><h1>Choose a rail.<br><span>Launch from here.</span></h1></div>
-      <p class="intro-copy">Launch once or prepare the same token for four rails. Provider fees stay with each launchpad; Anything takes no cut.</p>
+      <div><p class="kicker">Six launchpads. One workspace.</p><h1>Choose a rail.<br><span>Launch from here.</span></h1></div>
+      <p class="intro-copy">Launch once or prepare the same token for every rail you select. Provider fees stay with each launchpad; Anything takes no cut.</p>
     </section>
 
     <section class="launch-mode" aria-label="Launch mode">
       <div class="mode-switch" role="group" aria-label="Choose launch mode">
         <button class="mode-button active" type="button" data-mode="single"><span>Single launch</span><small>One rail</small></button>
-        <button class="mode-button" type="button" data-mode="multi"><span>Multi-launch</span><small>Choose 4 rails</small></button>
+        <button class="mode-button" type="button" data-mode="multi"><span>Multi-launch</span><small>Choose your rails</small></button>
       </div>
       <div class="multi-picker" id="multiPicker" hidden>
-        <div><b>Choose exactly four launchpads</b><small>Set each rail’s options, then start one guided launch queue.</small></div>
+        <div class="multi-picker-title"><span><b>Choose 1–6 launchpads</b><small>Select the rails, enter the token once, then start every selected launch.</small></span><button id="selectAllRails" type="button">Select all 6</button></div>
         <div class="multi-options">
           <label><input type="checkbox" value="stonkfun"><span><img src="https://www.stonkfun.xyz/stonk-mark.svg" alt="">StonkFun</span></label>
           <label><input type="checkbox" value="pumpfun"><span><img src="https://pump.fun/pump-logomark.svg" alt="">Pump.fun</span></label>
           <label><input type="checkbox" value="pons"><span><img src="https://www.ponsfamily.com/pons.png" alt="">Pons</span></label>
           <label><input type="checkbox" value="flap"><span><img src="https://flap.sh/icon.svg" alt="">Flap</span></label>
           <label><input type="checkbox" value="ember"><span><img src="https://embercurve.fun/apple-touch-icon.png" alt="">Ember</span></label>
+          <label><input type="checkbox" value="fourmeme"><span><img src="https://four.meme/apple-touch-icon.png" alt="">Four.meme</span></label>
         </div>
-        <p id="multiStatus">0 of 4 selected</p>
+        <p id="multiStatus">0 launchpads selected</p>
+        <div class="multi-wallet-routing" id="multiWalletRouting" hidden>
+          <div><b>Signer wallets</b><small>Connect once per selected network. Each wallet still shows its own final approval.</small></div>
+          <div class="signer-routes">
+            <button type="button" class="signer-route" data-signer-route="solana" data-connect-provider="pumpfun"><span class="signer-icon">◎</span><span><b>Solana</b><small>StonkFun · Pump.fun · Ember</small></span><i id="solanaSignerStatus">Connect</i></button>
+            <button type="button" class="signer-route" data-signer-route="pons" data-connect-provider="pons"><span class="signer-icon">M</span><span><b>Robinhood Chain</b><small>MetaMask recommended · Pons</small></span><i id="ponsSignerStatus">Connect</i></button>
+            <button type="button" class="signer-route" data-signer-route="flap" data-connect-provider="flap"><span class="signer-icon">T</span><span><b>BNB Chain</b><small>Trust Wallet · Flap + Four.meme</small></span><i id="flapSignerStatus">Connect</i></button>
+          </div>
+        </div>
       </div>
     </section>
 
@@ -62,6 +71,9 @@
       <button class="provider" data-provider="ember" data-name="Ember" data-chain="Solana" data-fee="200" data-tone="Fee rail">
         <span class="provider-logo ember-logo"><img src="https://embercurve.fun/apple-touch-icon.png" alt=""></span><span><b>Ember</b><small>Stocks + fee modules</small></span><i>05</i>
       </button>
+      <button class="provider" data-provider="fourmeme" data-name="Four.meme" data-chain="BNB Chain" data-fee="0" data-tone="Meme rail">
+        <span class="provider-logo fourmeme-logo"><img src="https://four.meme/apple-touch-icon.png" alt=""></span><span><b>Four.meme</b><small>BNB meme markets</small></span><i>06</i>
+      </button>
     </section>
 
     <section class="provider-stage">
@@ -78,17 +90,24 @@
           <div class="pons-art"><span><img src="https://www.ponsfamily.com/pons.png" alt=""></span><i></i><b>paired onchain</b></div>
           <div class="flap-art"><span><img src="https://flap.sh/ui20/nav-logo.svg" alt=""></span><i>/// PROGRAMMABLE</i><b>CREATE TOKEN →</b></div>
           <div class="ember-art"><span><img src="https://embercurve.fun/apple-touch-icon.png" alt=""></span><i></i><i></i><i></i><b>fees go somewhere.</b></div>
+          <div class="fourmeme-art"><span><img src="https://four.meme/apple-touch-icon.png" alt=""></span><i>FOUR.MEME</i><b>BNB MEME / LAUNCH</b></div>
         </div>
       </header>
 
       <div class="build-grid">
         <form id="launchForm" class="launch-card">
-          <div class="form-heading"><div><span class="section-number">01</span><h3>Token details</h3></div><small id="formHint">Built for paired markets</small></div>
+          <div class="form-heading"><div><span class="section-number">01</span><h3 id="tokenDetailsTitle">Token details</h3></div><small id="formHint">Built for paired markets</small></div>
+          <div class="multi-shared-intro" id="multiSharedIntro" hidden><b>One form for every selected launchpad</b><span>Upload and enter the token details once. They are reused for every selected launch.</span></div>
           <div class="asset-row">
             <label class="upload" aria-label="Add token image"><input id="assetImage" type="file" accept="image/*"><span id="uploadText"><b>+</b><small>Add image</small></span><img id="imagePreview" alt="Token preview"></label>
             <div class="field-grid asset-fields"><label>Token name<input id="marketName" required minlength="2" maxlength="32" placeholder="e.g. Infinite Coffee"></label><label>Ticker<input id="ticker" required pattern="[A-Za-z0-9]{2,10}" maxlength="10" placeholder="BREW"></label></div>
           </div>
           <label class="description">Description<textarea id="description" maxlength="500" placeholder="Tell people what you are launching"></textarea></label>
+          <div class="multi-shared-details" id="multiSharedDetails" hidden>
+            <div class="option-title"><b>Project links</b><small>Used on every selected launchpad</small></div>
+            <label>Website<input id="sharedWebsite" type="url" placeholder="https://..."></label>
+            <div class="field-grid"><label><span id="sharedXLabel">X / Twitter</span><input id="sharedX" type="url" placeholder="https://x.com/..."></label><label>Telegram<input id="sharedTelegram" type="url" placeholder="https://t.me/..."></label></div>
+          </div>
           <div class="section-line"><span class="section-number">02</span><h3>Launch settings</h3></div>
           <div class="route-inputs"><div class="network-card"><span class="chain-mark">◆</span><span><small>Network</small><b id="networkName">Solana</b></span></div><div class="network-card"><span class="chain-mark">✓</span><span><small>Anything fee</small><b>0% · provider fees apply</b></span></div></div>
           <label class="wide-field">Pair with<select id="pairSelect" required><option value="">Loading available pairs…</option></select></label>
@@ -105,6 +124,7 @@
           <div id="ponsOptions" class="provider-options pons-options" hidden><div class="option-title"><b>Pons V2 options</b><small>Robinhood Chain</small></div><div class="field-grid"><label>Creator tax %<input id="ponsCreatorTax" type="number" min="0" max="10" step="0.01" value="0.75"></label><label>Creator payout wallet<input id="ponsCreatorWallet" placeholder="Connected wallet by default"></label></div><div class="field-grid"><label>Dev buy in pair token<input id="ponsDevBuy" type="number" min="0" step="0.000001" value="0"></label><label class="switch-row">Holder fee sharing<input id="ponsHolderShare" type="checkbox"></label></div><label>Snipe-tax exemptions <small>Up to 30 addresses, comma-separated</small><textarea id="ponsExemptions" placeholder="0x123..., 0x456..."></textarea></label><details><summary>Project links</summary><div class="details-grid"><div class="field-grid"><label>Website<input id="websiteUrl" type="url" placeholder="https://..."></label><label>X / Twitter<input id="ponsX" type="url" placeholder="https://x.com/..."></label></div><label>Telegram<input id="ponsTelegram" type="url" placeholder="https://t.me/..."></label></div></details><p>Your uploaded token image is used automatically. Your chosen EVM wallet signs the current Pons V2 factory transaction.</p></div>
           <div id="flapOptions" class="provider-options flap-options" hidden><div class="option-title"><b>Flap Tax Token V3</b><small>Recommended Portal V6 route</small></div><div class="field-grid"><label>Initial buy in pair token<input id="flapInitialBuy" type="number" min="0" step="0.000001" value="0"></label><label>Tax duration<select id="flapTaxDuration"><option value="2592000">30 days</option><option value="7776000">90 days</option><option value="31536000" selected>1 year</option></select></label></div><div class="field-grid"><label>Buy tax %<input id="flapBuyTax" type="number" min="0" max="25" step="0.1" value="3"></label><label>Sell tax %<input id="flapSellTax" type="number" min="0" max="25" step="0.1" value="10"></label></div><div class="field-grid"><label>Anti-farmer<select id="flapAntiFarmer"><option value="0">Off</option><option value="3600">1 hour</option><option value="86400">1 day</option><option value="259200" selected>3 days</option></select></label><label class="switch-row">Earn protocol commission<input id="flapCommission" type="checkbox"></label></div><div class="allocation-grid"><label>Beneficiary %<input id="flapMarketing" type="number" min="0" max="100" value="100"></label><label>Burn %<input id="flapBurn" type="number" min="0" max="100" value="0"></label><label>Dividends %<input id="flapDividend" type="number" min="0" max="100" value="0"></label><label>LP %<input id="flapLp" type="number" min="0" max="100" value="0"></label></div><label>Dividend payout<select id="flapDividendToken"><option value="quote">Pair / native token</option><option value="self">Launched token</option></select></label><details><summary>Project links</summary><div class="details-grid"><div class="field-grid"><label>Website<input id="flapWebsite" type="url" placeholder="https://..."></label><label>X profile<input id="flapX" type="url" placeholder="https://x.com/..."></label></div><label>Telegram<input id="flapTelegram" type="url" placeholder="https://t.me/..."></label></div></details><p>Tax allocation must total 100%. Your selected wallet is the beneficiary and optional commission receiver.</p></div>
           <div id="emberOptions" class="provider-options ember-options" hidden><div class="option-title"><b>Ember curve options</b><small>1B fixed supply</small></div><div class="field-grid"><label>Trade tax<select id="emberFee"><option value="100">1%</option><option value="200" selected>2%</option><option value="300">3%</option></select></label><label>Graduation<select id="emberGraduate"><option value="25000">$25,000</option><option value="35000" selected>$35,000</option><option value="40000">$40,000</option></select></label></div><div class="field-grid"><label>Fee destination<select id="emberMode"><option value="holders">Holder rewards</option><option value="diamond">Diamond Hands</option><option value="vault">Milestone Vault</option><option value="perp">Conviction</option><option value="booster">EMBER Booster</option><option value="sister">Sister coin</option><option value="lotto">SuperLotto</option><option value="dip">Dip Defender</option><option value="bounty">Top Buyer Bounty</option><option value="lp">LP Farm</option><option value="burn">Buyback & burn</option><option value="split">Split wallets</option><option value="keep">Keep it</option></select></label><label>Payout currency<select id="emberPayout"><option value="quote">Selected pair</option><option value="sol">SOL</option><option value="ember">EMBER</option></select></label></div><div class="addon-grid"><label><input id="emberShield" type="checkbox"> Sniper Shield</label><label><input id="emberVolatility" type="checkbox"> Volatility Dividend</label><label><input id="emberAirdrop" type="checkbox"> Graduation Airdrop</label></div><details><summary>Project links</summary><div class="details-grid"><div class="field-grid"><label>Website<input id="emberWebsite" type="url" placeholder="https://..."></label><label>X profile<input id="emberX" type="url" placeholder="https://x.com/..."></label></div><label>Telegram<input id="emberTelegram" type="url" placeholder="https://t.me/..."></label></div></details><p>Module availability is validated by Ember against the selected pair and economics at prepare time.</p></div>
+          <div id="fourMemeOptions" class="provider-options fourmeme-options" hidden><div class="option-title"><b>Four.meme options</b><small>OpenFour · BNB Chain</small></div><div class="field-grid"><label>Category<select id="fourMemeLabel"><option>Meme</option><option>AI</option><option>Defi</option><option>Games</option><option>Infra</option><option>De-Sci</option><option>Social</option><option>Depin</option><option>Charity</option><option>Others</option></select></label><label>Presale buy in BNB<input id="fourMemePresale" type="number" min="0" step="0.000001" value="0"></label></div><details><summary>Project links</summary><div class="details-grid"><div class="field-grid"><label>Website<input id="fourMemeWebsite" type="url" placeholder="https://..."></label><label>X profile<input id="fourMemeX" type="url" placeholder="https://x.com/..."></label></div><label>Telegram<input id="fourMemeTelegram" type="url" placeholder="https://t.me/..."></label></div></details><p>Your BNB wallet signs the current OpenFour launch request. Anything never receives or stores a private key.</p></div>
           <button class="primary" type="submit"><span id="reviewButtonText">Review launch</span><b>→</b></button>
         </form>
 
@@ -116,20 +136,25 @@
       </div>
     </section>
 
-    <section class="rail-summary"><p>Connected rails</p><div><span>StonkFun</span><span>Pump.fun</span><span>Pons</span><span>Flap</span><span>Ember</span></div><b>5 providers · 3 networks · 1 workspace</b></section>
+    <section class="launched-section" id="launched">
+      <div class="launched-heading"><div><p class="kicker">Live history</p><h2>Launched from here.</h2></div><p>Confirmed launches made through Anything appear here with their provider and explorer link when available.</p></div>
+      <div class="launched-grid" id="launchedGrid"><div class="launched-empty"><b>No launches saved yet.</b><span>Your successful launches will appear here automatically.</span></div></div>
+    </section>
+
+    <section class="rail-summary"><p>Connected rails</p><div><span>StonkFun</span><span>Pump.fun</span><span>Pons</span><span>Flap</span><span>Ember</span><span>Four.meme</span></div><b>6 providers · 3 networks · 1 workspace</b></section>
   </main>
 
   <div class="drawer" id="drawer" aria-hidden="true"><button class="backdrop" id="backdrop" aria-label="Close review"></button><section><div class="drawer-title"><div><p class="kicker">Final check</p><h2 id="reviewTitle">Review launch</h2></div><button id="closeDrawer" aria-label="Close">×</button></div><div class="token-summary"><span class="summary-provider-logo"><img id="summaryLogo" src="https://www.stonkfun.xyz/stonk-mark.svg" alt="StonkFun logo"></span><span><b id="summaryName">Untitled market</b><small><span id="summaryTicker">$TICKER</span> · <span id="summaryProvider">StonkFun</span></small></span></div><div class="fee summary" id="singleSummary"><p><span>Route</span><b id="summaryRoute">StonkFun</b></p><p><span>Network</span><b id="summaryNetwork">Solana</b></p><p><span>Launch amount</span><b id="summaryBuy">0</b></p><p class="total"><span>Provider cost</span><b id="summaryFee">Live quote</b></p></div><div class="launch-queue" id="launchQueue" hidden></div><div class="risk-note" id="riskNote">This creates an on-chain asset. Verify every amount and address in your wallet before signing; transactions cannot be reversed.</div><div class="drawer-bottom"><p id="intentMessage">Your wallet will show the final transaction.</p><button class="primary" id="launchNow">Connect & launch on StonkFun</button></div></section></div>
   <div class="wallet-chooser" id="walletChooser" aria-hidden="true">
     <button class="wallet-chooser-backdrop" id="walletChooserBackdrop" aria-label="Close wallet selector"></button>
     <section role="dialog" aria-modal="true" aria-labelledby="walletChooserTitle">
-      <div class="wallet-chooser-title"><div><p class="kicker">EVM wallet</p><h2 id="walletChooserTitle">Choose your wallet</h2></div><button id="closeWalletChooser" aria-label="Close">×</button></div>
-      <p class="wallet-chooser-copy">Select which wallet Pons or Flap should use. Nothing opens until you choose.</p>
+      <div class="wallet-chooser-title"><div><p class="kicker" id="walletChooserKicker">Signer wallet</p><h2 id="walletChooserTitle">Choose your wallet</h2></div><button id="closeWalletChooser" aria-label="Close">×</button></div>
+      <p class="wallet-chooser-copy" id="walletChooserCopy">Select the wallet this launch route should use. Nothing opens until you choose.</p>
       <div class="wallet-options" id="walletOptions"></div>
       <p class="wallet-detection" id="walletDetection">Looking for installed wallets…</p>
     </section>
   </div>
   <div class="toast" id="toast" role="status"></div>
-  <script src="/config.js"></script><script type="module" src="/app.js?v=20260914-upload-only"></script>
+  <script src="/config.js"></script><script type="module" src="/app.js?v=20260915-previous-launches"></script>
 </body>
 </html>
