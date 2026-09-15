@@ -68,7 +68,7 @@ body[data-launch-mode="multi"] .launch-card .primary{background:#15313c;color:#f
 .drawer-bottom p{line-height:1.5;overflow-wrap:anywhere}
 
 /* Sixth rail: keep the existing layout and give Four.meme its own provider treatment. */
-.rail-picker{grid-template-columns:repeat(6,minmax(0,1fr))}
+.rail-picker{grid-template-columns:repeat(5,minmax(0,1fr))}
 .multi-options{grid-template-columns:repeat(6,minmax(0,1fr))}
 body[data-theme="fourmeme"]{--accent:#f5d84b;--accent-strong:#241f10;--stage:#fff9dc;--display:"Manrope",sans-serif;--radius:25px}
 body[data-theme="fourmeme"] .provider-hero{background:linear-gradient(135deg,#201c0e,#342b10)}
@@ -83,6 +83,23 @@ body[data-theme="fourmeme"] .primary{background:#f5d84b;color:#1a170d}
 @media(max-width:860px){.multi-options{grid-template-columns:repeat(3,minmax(0,1fr))}}
 @media(max-width:720px){.rail-picker{display:flex}.multi-options{grid-template-columns:repeat(2,minmax(0,1fr))}body[data-theme="fourmeme"] .fourmeme-art>span{width:92px;height:92px}body[data-theme="fourmeme"] .fourmeme-art>span img{width:72px;height:72px}}
 @media(max-width:390px){.multi-options{grid-template-columns:1fr 1fr}}
+
+/* Expanded verified rails. Direct launch routes remain separate from provider handoffs. */
+.bags-logo,.clanker-logo,.arcpad-logo,.long-logo{position:relative;font:800 17px var(--display)}
+.bags-logo{background:#171717;color:#fff}.clanker-logo{background:#fff0d7;color:#5b3714}.arcpad-logo{background:#dff8ff;color:#075d73}.long-logo{background:#e9edff;color:#263c93}
+.bags-logo:after,.clanker-logo:after,.arcpad-logo:after,.long-logo:after{content:attr(data-mark);position:absolute;inset:0;display:grid;place-items:center}
+.bags-logo img,.clanker-logo img,.arcpad-logo img,.long-logo img{position:relative;z-index:1;border-radius:8px;background:inherit}
+.bags-art,.clanker-art,.arcpad-art,.long-art{align-items:center;justify-content:center;flex-direction:column;background-image:radial-gradient(#ffffff20 1px,transparent 1px);background-size:16px 16px}
+.bags-art>span,.clanker-art>span,.arcpad-art>span,.long-art>span{width:112px;height:112px;border-radius:30px;display:grid;place-items:center;font:800 56px var(--display);box-shadow:0 24px 65px #0005}
+.bags-art>i,.clanker-art>i,.arcpad-art>i,.long-art>i{margin-top:16px;font:800 27px var(--display);font-style:normal;letter-spacing:-.04em}
+.bags-art>b,.clanker-art>b,.arcpad-art>b,.long-art>b{font:600 10px "IBM Plex Mono",monospace;letter-spacing:.12em;margin-top:2px}
+body[data-theme="bags"]{--accent:#8cf0c4;--accent-strong:#121614;--stage:#eafff6;--display:"Sora",sans-serif;--radius:27px}body[data-theme="bags"] .bags-art{display:flex}body[data-theme="bags"] .bags-art>span{background:#8cf0c4;color:#111}body[data-theme="bags"] .bags-art>i{color:#8cf0c4}body[data-theme="bags"] .bags-art>b{color:#d8ffed}
+body[data-theme="clanker"]{--accent:#f2b35f;--accent-strong:#2b1c0d;--stage:#fff5e8;--display:"Manrope",sans-serif;--radius:25px}body[data-theme="clanker"] .provider-hero{background:linear-gradient(135deg,#24170b,#553419)}body[data-theme="clanker"] .clanker-art{display:flex}body[data-theme="clanker"] .clanker-art>span{background:#f5b864;color:#2b1c0d}body[data-theme="clanker"] .clanker-art>i{color:#ffd08e}body[data-theme="clanker"] .clanker-art>b{color:#fff1dc}
+body[data-theme="arcpad"]{--accent:#62d7ee;--accent-strong:#072a34;--stage:#eafaff;--display:"Sora",sans-serif;--radius:25px}body[data-theme="arcpad"] .provider-hero{background:linear-gradient(135deg,#062630,#0b5263)}body[data-theme="arcpad"] .arcpad-art{display:flex}body[data-theme="arcpad"] .arcpad-art>span{background:#62d7ee;color:#062630}body[data-theme="arcpad"] .arcpad-art>i{color:#8cecff}body[data-theme="arcpad"] .arcpad-art>b{color:#dffbff}
+body[data-theme="long"]{--accent:#91a7ff;--accent-strong:#121a3d;--stage:#eef1ff;--display:"Sora",sans-serif;--radius:25px}body[data-theme="long"] .provider-hero{background:linear-gradient(135deg,#111936,#25366f)}body[data-theme="long"] .long-art{display:flex}body[data-theme="long"] .long-art>span{background:#91a7ff;color:#111936}body[data-theme="long"] .long-art>i{color:#b9c6ff}body[data-theme="long"] .long-art>b{color:#edf0ff}
+.rail-summary>div{flex-wrap:wrap}.side-title #routeStatus{white-space:nowrap}
+@media(max-width:1050px){.rail-picker{grid-template-columns:repeat(3,1fr)}}
+@media(max-width:720px){.rail-picker{display:flex}.bags-art>span,.clanker-art>span,.arcpad-art>span,.long-art>span{width:90px;height:90px;font-size:44px}.rail-summary{align-items:flex-start;flex-wrap:wrap}.rail-summary>b{margin-left:0}}
 
 /* Successful launch history follows the existing white editorial system. */
 .launched-section{margin:58px 0 18px;padding-top:34px;border-top:1px solid var(--line)}

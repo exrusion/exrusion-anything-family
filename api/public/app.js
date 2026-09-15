@@ -9,12 +9,15 @@ let walletType = "";
 let evmProvider = null;
 let evmWalletName = "";
 let walletChoiceResolver = null;
+let walletChooserState = { kind: "evm", preferredKey: "", network: "" };
 let launchMode = "single";
 let activeMultiIds = [];
 let launchAttemptId = "";
+let launchAttemptCreatedAt = "";
 const providerDrafts = new Map();
 const multiResults = new Map();
 const announcedEvmWallets = new Map();
+const walletConnections = { solana: null, pons: null, flap: null };
 let Transaction;
 let createPublicClient, createWalletClient, custom, decodeEventLog, defineChain, getContractAddress, http, keccak256, parseUnits, toBytes, toHex;
 let robinhoodChain;
@@ -78,6 +81,41 @@ const providerContent = {
     hint: "Fee-powered market",
     logo: "https://embercurve.fun/apple-touch-icon.png",
   },
+  fourmeme: {
+    headline: "Turn a meme into a market.",
+    description: "Launch a BNB meme token through Four.meme’s current OpenFour creation route.",
+    mechanic: "OpenFour Core",
+    hint: "BNB meme launch",
+    logo: "https://four.meme/apple-touch-icon.png",
+  },
+  bags: {
+    headline: "Share the fees. Keep the launch simple.",
+    description: "Prepare a Bags launch with token details, artwork, social links and the official fee mode already filled in.",
+    mechanic: "Official launch intent",
+    hint: "Prefilled provider handoff",
+    logo: "https://bags.fm/favicon.ico",
+  },
+  clanker: {
+    headline: "Launch straight into a Base market.",
+    description: "Continue to Clanker for a permissionless token deployment with Uniswap liquidity, vault and reward controls.",
+    mechanic: "Verified provider handoff",
+    hint: "Base launch route",
+    logo: "https://www.clanker.world/favicon.ico",
+  },
+  arcpad: {
+    headline: "Launch into Arc with USDC.",
+    description: "Open ArcPad’s early-access Arc flow for a direct Uniswap V3 market and creator rewards paid in USDC.",
+    mechanic: "Arc early access",
+    hint: "Verify Arc network details",
+    logo: "https://arcpad.meme/favicon.ico",
+  },
+  long: {
+    headline: "Pair a community coin with stocks on Arc.",
+    description: "Continue to long.supply to choose an available bridged stock token and review the provider’s custody model.",
+    mechanic: "Arc stock handoff",
+    hint: "Custodial stock-pair route",
+    logo: "https://long.supply/favicon.ico",
+  },
 };
 
 const providerCosts = {
@@ -86,6 +124,11 @@ const providerCosts = {
   pons: { label: "Launchpad launch fee", value: "0.0005 ETH", totalLabel: "Network cost", total: "Plus gas", disclosure: "Pons receives its launch and trading fees. Anything takes no cut." },
   flap: { label: "Selected token tax", value: "3% buy / 10% sell", totalLabel: "Launch cost", total: "Initial buy + gas", disclosure: "Flap’s selected token taxes and BNB network costs apply. Anything takes no cut." },
   ember: { label: "Selected trade tax", value: "2.00%", totalLabel: "Launch charge", total: "Provider quote", disclosure: "Ember applies its selected trade-tax split and network costs. Anything takes no cut." },
+  fourmeme: { label: "Launchpad fee", value: "Live contract fee", totalLabel: "Launch cost", total: "Provider fee + gas", disclosure: "Four.meme receives its launch and trading fees. BNB network gas applies; Anything takes no cut." },
+  bags: { label: "Selected fee mode", value: "1.00% founder mode", totalLabel: "Anything cut", total: "0.00%", disclosure: "Bags shows the final launch and trading costs before signing. Anything takes no cut." },
+  clanker: { label: "Launchpad fee", value: "Shown by Clanker", totalLabel: "Anything cut", total: "0.00%", disclosure: "Clanker shows the final Base deployment and network costs. Anything takes no cut." },
+  arcpad: { label: "Trading fee", value: "1.00% buy / 0% sell", totalLabel: "Anything cut", total: "0.00%", disclosure: "ArcPad states that creators receive 0.5% of buys. Arc is early access; verify every wallet prompt." },
+  long: { label: "Launchpad fee", value: "Shown by long.supply", totalLabel: "Anything cut", total: "0.00%", disclosure: "long.supply uses a custodial bridge for stock pairs. Review its disclosure and final costs before signing." },
 };
 
 const PONS_FACTORY = "0x7eD598BcEf8bd9Edd8C97A195C6d13f40801EC7e";
@@ -118,14 +161,244 @@ const flapPortalAbi = [{ type: "function", name: "newTokenV6", stateMutability: 
   { name: "name", type: "string" }, { name: "symbol", type: "string" }, { name: "meta", type: "string" }, { name: "dexThresh", type: "uint8" }, { name: "salt", type: "bytes32" }, { name: "migratorType", type: "uint8" }, { name: "quoteToken", type: "address" }, { name: "quoteAmt", type: "uint256" }, { name: "beneficiary", type: "address" }, { name: "permitData", type: "bytes" }, { name: "extensionID", type: "bytes32" }, { name: "extensionData", type: "bytes" }, { name: "dexId", type: "uint8" }, { name: "lpFeeProfile", type: "uint8" }, { name: "buyTaxRate", type: "uint16" }, { name: "sellTaxRate", type: "uint16" }, { name: "taxDuration", type: "uint64" }, { name: "antiFarmerDuration", type: "uint64" }, { name: "mktBps", type: "uint16" }, { name: "deflationBps", type: "uint16" }, { name: "dividendBps", type: "uint16" }, { name: "lpBps", type: "uint16" }, { name: "minimumShareBalance", type: "uint256" }, { name: "dividendToken", type: "address" }, { name: "commissionReceiver", type: "address" }, { name: "tokenVersion", type: "uint8" },
 ]}], outputs: [{ name: "token", type: "address" }] }];
 const erc20Abi = [{ type: "function", name: "allowance", stateMutability: "view", inputs: [{ name: "owner", type: "address" }, { name: "spender", type: "address" }], outputs: [{ type: "uint256" }] }, { type: "function", name: "approve", stateMutability: "nonpayable", inputs: [{ name: "spender", type: "address" }, { name: "amount", type: "uint256" }], outputs: [{ type: "bool" }] }];
+const fourMemeAbi = [
+  { type: "function", name: "createToken", stateMutability: "payable", inputs: [{ name: "createArg", type: "bytes" }, { name: "signature", type: "bytes" }], outputs: [] },
+];
 
 function moneyBps(value) { return (Number(value) / 100).toFixed(2) + "%"; }
 function shortAddress(value) { return value ? `${value.slice(0, 5)}…${value.slice(-4)}` : "Connect wallet"; }
 function showToast(message) { const toast = $("#toast"); toast.textContent = message; toast.classList.add("show"); setTimeout(() => toast.classList.remove("show"), 3600); }
 function bytesToBase64(bytes) { let binary = ""; for (let i = 0; i < bytes.length; i += 0x8000) binary += String.fromCharCode(...bytes.subarray(i, i + 0x8000)); return btoa(binary); }
 function base64ToBytes(value) { return Uint8Array.from(atob(value), (char) => char.charCodeAt(0)); }
+function escapeHtml(value) { return String(value || "").replace(/[&<>"']/g, (char) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[char]); }
+
+const launchHistoryKey = "anything.family.launched.v1";
+const previousLaunches = [
+  { id: "test-stonkfun", provider: "stonkfun", providerName: "StonkFun", network: "Solana", name: "TEST", ticker: "TEST", historical: true, launchGroupId: "previous-test-multi", launchGroupIndex: 0, launchGroupSize: 5 },
+  { id: "test-pumpfun", provider: "pumpfun", providerName: "Pump.fun", network: "Solana", name: "TEST", ticker: "TEST", historical: true, launchGroupId: "previous-test-multi", launchGroupIndex: 1, launchGroupSize: 5 },
+  { id: "test-ember", provider: "ember", providerName: "Ember", network: "Solana", name: "TEST", ticker: "TEST", historical: true, launchGroupId: "previous-test-multi", launchGroupIndex: 2, launchGroupSize: 5 },
+  { id: "test-pons", provider: "pons", providerName: "Pons", network: "Robinhood Chain", name: "TEST", ticker: "TEST", historical: true, launchGroupId: "previous-test-multi", launchGroupIndex: 3, launchGroupSize: 5 },
+  { id: "test-flap", provider: "flap", providerName: "Flap", network: "BNB Chain", name: "TEST", ticker: "TEST", historical: true, launchGroupId: "previous-test-multi", launchGroupIndex: 4, launchGroupSize: 5 },
+];
+function deviceLaunchHistory() {
+  try { const value = JSON.parse(localStorage.getItem(launchHistoryKey) || "[]"); return Array.isArray(value) ? value : []; }
+  catch { return []; }
+}
+function launchHistory() {
+  const seen = new Set();
+  return [...deviceLaunchHistory(), ...previousLaunches].filter((item) => {
+    const key = item.id || item.url || `${item.provider}:${item.name}:${item.ticker}`;
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+}
+function addLegacyLaunchGroups(items) {
+  const groupedItems = new Map();
+  const candidatesByToken = new Map();
+  items.forEach((item, index) => {
+    if (item.launchGroupId || item.historical || !item.createdAt) return;
+    const createdAt = Date.parse(item.createdAt);
+    if (!Number.isFinite(createdAt)) return;
+    const key = `${String(item.name || "").trim().toLowerCase()}:${String(item.ticker || "").trim().toLowerCase()}`;
+    if (!candidatesByToken.has(key)) candidatesByToken.set(key, []);
+    candidatesByToken.get(key).push({ item, index, createdAt });
+  });
+  const flush = (cluster, key) => {
+    if (cluster.length < 2 || new Set(cluster.map(({ item }) => item.provider)).size < 2) return;
+    const groupId = `legacy:${key}:${Math.max(...cluster.map(({ createdAt }) => createdAt))}`;
+    const createdAt = new Date(Math.min(...cluster.map((entry) => entry.createdAt))).toISOString();
+    cluster.forEach((entry, groupIndex) => groupedItems.set(entry.index, {
+      ...entry.item,
+      launchGroupId: groupId,
+      launchGroupIndex: groupIndex,
+      launchGroupSize: cluster.length,
+      launchGroupCreatedAt: createdAt,
+    }));
+  };
+  candidatesByToken.forEach((entries, key) => {
+    entries.sort((a, b) => a.createdAt - b.createdAt);
+    let cluster = [];
+    entries.forEach((entry) => {
+      const first = cluster[0];
+      const previous = cluster[cluster.length - 1];
+      const repeatedProvider = cluster.some(({ item }) => item.provider === entry.item.provider);
+      const closeToBatch = !first || (entry.createdAt - first.createdAt <= 20 * 60 * 1000 && entry.createdAt - previous.createdAt <= 12 * 60 * 1000);
+      if (cluster.length && (repeatedProvider || !closeToBatch)) {
+        flush(cluster, key);
+        cluster = [];
+      }
+      cluster.push(entry);
+    });
+    flush(cluster, key);
+  });
+  return items.map((item, index) => groupedItems.get(index) || item);
+}
+function groupedLaunchHistory(items) {
+  const groups = new Map();
+  items.forEach((item) => {
+    if (!item.launchGroupId) return;
+    if (!groups.has(item.launchGroupId)) groups.set(item.launchGroupId, []);
+    groups.get(item.launchGroupId).push(item);
+  });
+  const emitted = new Set();
+  return items.flatMap((item) => {
+    if (!item.launchGroupId) return [{ type: "single", item }];
+    if (emitted.has(item.launchGroupId)) return [];
+    emitted.add(item.launchGroupId);
+    return [{ type: "group", id: item.launchGroupId, items: groups.get(item.launchGroupId).sort((a, b) => Number(a.launchGroupIndex || 0) - Number(b.launchGroupIndex || 0)) }];
+  });
+}
+function addressFromLaunch(item) {
+  if (item?.address) return String(item.address);
+  const url = String(item?.url || "");
+  const evm = url.match(/0x[a-fA-F0-9]{40}/);
+  if (evm) return evm[0];
+  const pathParts = url.split(/[/?#]/).filter(Boolean);
+  const solana = pathParts.find((part) => /^[1-9A-HJ-NP-Za-km-z]{32,44}$/.test(part));
+  return solana || "";
+}
+function explorerForLaunch(item, address) {
+  if (item?.url) return String(item.url);
+  if (!address) return "";
+  if (item.network === "Solana") return `https://solscan.io/token/${address}`;
+  if (item.network === "BNB Chain") return `https://bscscan.com/token/${address}`;
+  if (item.network === "Robinhood Chain") return `https://robinhoodchain.blockscout.com/token/${address}`;
+  return "";
+}
+function renderLaunchCard(item, grouped = false) {
+  const provider = providerContent[item.provider] || providerContent.stonkfun;
+  const address = addressFromLaunch(item);
+  const url = explorerForLaunch(item, address);
+  const when = item.historical ? "Previous confirmed launch" : new Date(item.createdAt).toLocaleString();
+  const ca = address ? `<span class="launch-ca"><code title="${escapeHtml(address)}">${escapeHtml(address)}</code><button type="button" data-copy-ca="${escapeHtml(address)}" aria-label="Copy contract address for ${escapeHtml(item.name)}">Copy CA</button></span>` : "";
+  const action = url ? `<a href="${escapeHtml(url)}" target="_blank" rel="noopener noreferrer" aria-label="View ${escapeHtml(item.name)} on explorer">View ↗</a>` : "<i>Confirmed</i>";
+  return `<article class="launched-item${grouped ? " is-grouped" : ""}${url ? " is-clickable" : ""}"${url ? ` data-launch-url="${escapeHtml(url)}" role="link" tabindex="0"` : ""}><img src="${escapeHtml(provider.logo)}" alt=""><span class="launch-info"><b>${escapeHtml(item.providerName)}</b><small>${escapeHtml(item.network)} · ${escapeHtml(when)}</small>${ca}</span><span class="launch-action">${action}</span></article>`;
+}
+function renderLaunchGroup(group) {
+  const first = group.items[0];
+  const expected = Math.max(group.items.length, ...group.items.map((item) => Number(item.launchGroupSize || 0)));
+  const groupDate = first.launchGroupCreatedAt || group.items.find((item) => item.createdAt)?.createdAt;
+  const when = first.historical || !groupDate ? "Previous confirmed multi-launch" : new Date(groupDate).toLocaleString();
+  const status = group.items.length === expected ? `${expected} launchpads` : `${group.items.length} of ${expected} confirmed`;
+  const logos = group.items.slice(0, 6).map((item) => {
+    const provider = providerContent[item.provider] || providerContent.stonkfun;
+    return `<img src="${escapeHtml(provider.logo)}" alt="${escapeHtml(item.providerName)}">`;
+  }).join("");
+  return `<details class="launched-group" open><summary><span class="launched-group-logos">${logos}</span><span class="launched-group-title"><b>${escapeHtml(first.name)} · ${escapeHtml(first.ticker)}</b><small>Multi-launch · ${escapeHtml(when)}</small></span><span class="launched-group-count">${escapeHtml(status)}</span></summary><div class="launched-group-grid">${group.items.map((item) => renderLaunchCard(item, true)).join("")}</div></details>`;
+}
+function renderLaunchHistory() {
+  const grid = $("#launchedGrid");
+  if (!grid) return;
+  const history = addLegacyLaunchGroups(launchHistory());
+  if (!history.length) {
+    grid.innerHTML = '<div class="launched-empty"><b>No launches saved yet.</b><span>Your successful launches will appear here automatically.</span></div>';
+    return;
+  }
+  grid.innerHTML = groupedLaunchHistory(history).map((entry) => entry.type === "group" ? renderLaunchGroup(entry) : renderLaunchCard(entry.item)).join("");
+}
+async function copyLaunchAddress(address, button) {
+  try {
+    await navigator.clipboard.writeText(address);
+    const previous = button.textContent;
+    button.textContent = "Copied";
+    showToast("Contract address copied.");
+    setTimeout(() => { button.textContent = previous; }, 1600);
+  } catch {
+    showToast("Could not copy automatically. Press and hold the address to copy it.");
+  }
+}
+$("#launchedGrid")?.addEventListener("click", (event) => {
+  const copyButton = event.target.closest("[data-copy-ca]");
+  if (copyButton) {
+    event.preventDefault();
+    event.stopPropagation();
+    copyLaunchAddress(copyButton.dataset.copyCa, copyButton);
+    return;
+  }
+  if (event.target.closest("a")) return;
+  const card = event.target.closest("[data-launch-url]");
+  if (card) window.open(card.dataset.launchUrl, "_blank", "noopener,noreferrer");
+});
+$("#launchedGrid")?.addEventListener("keydown", (event) => {
+  if (event.target.matches("[data-launch-url]") && (event.key === "Enter" || event.key === " ")) {
+    event.preventDefault();
+    window.open(event.target.dataset.launchUrl, "_blank", "noopener,noreferrer");
+  }
+});
+function recordLaunch(providerId, result, groupMeta = null) {
+  try {
+    const providerButton = providers.find((item) => item.dataset.provider === providerId);
+    if (!providerButton) return;
+    const address = result?.address || addressFromLaunch(result);
+    const item = { id: groupMeta?.id ? `${groupMeta.id}:${providerId}` : window.crypto.randomUUID(), provider: providerId, providerName: providerButton.dataset.name, network: providerButton.dataset.chain, name: $("#marketName").value.trim(), ticker: $("#ticker").value.trim().toUpperCase(), address, url: result?.url || explorerForLaunch({ network: providerButton.dataset.chain }, address), createdAt: new Date().toISOString() };
+    if (groupMeta?.id) Object.assign(item, { launchGroupId: groupMeta.id, launchGroupIndex: groupMeta.index, launchGroupSize: groupMeta.size, launchGroupCreatedAt: groupMeta.createdAt });
+    const history = deviceLaunchHistory().filter((entry) => entry.id !== item.id && !(item.url && entry.url === item.url));
+    history.unshift(item);
+    localStorage.setItem(launchHistoryKey, JSON.stringify(history.slice(0, 48)));
+    renderLaunchHistory();
+  } catch {}
+}
+
+async function responseJson(response, fallback) {
+  const text = await response.text();
+  try { return text ? JSON.parse(text) : {}; }
+  catch { return { error: fallback || "The launch provider returned an invalid response. Please retry." }; }
+}
+
+const SAFE_IMAGE_BYTES = 1_800_000;
+const SAFE_IMAGE_EDGE = 1200;
+
+function canvasBlob(canvas, type, quality) {
+  return new Promise((resolve, reject) => {
+    canvas.toBlob((blob) => blob ? resolve(blob) : reject(new Error("This browser could not prepare the token image.")), type, quality);
+  });
+}
+
+function decodeImage(file) {
+  return new Promise((resolve, reject) => {
+    const source = URL.createObjectURL(file);
+    const image = new Image();
+    image.onload = () => resolve({ image, source });
+    image.onerror = () => { URL.revokeObjectURL(source); reject(new Error("Use an image your browser can open, such as PNG, JPEG, WebP, GIF, SVG or AVIF.")); };
+    image.src = source;
+  });
+}
+
+async function normalizeTokenImage(file) {
+  if (!file || !String(file.type || "").startsWith("image/")) throw new Error("Choose an image file.");
+  const decoded = await decodeImage(file);
+  try {
+    const sourceWidth = decoded.image.naturalWidth;
+    const sourceHeight = decoded.image.naturalHeight;
+    if (!sourceWidth || !sourceHeight) throw new Error("The selected image has no readable dimensions.");
+    let scale = Math.min(1, SAFE_IMAGE_EDGE / Math.max(sourceWidth, sourceHeight));
+    let output;
+    for (let attempt = 0; attempt < 8; attempt += 1) {
+      const canvas = document.createElement("canvas");
+      canvas.width = Math.max(1, Math.round(sourceWidth * scale));
+      canvas.height = Math.max(1, Math.round(sourceHeight * scale));
+      const context = canvas.getContext("2d", { alpha: true });
+      if (!context) throw new Error("This browser could not prepare the token image.");
+      context.drawImage(decoded.image, 0, 0, canvas.width, canvas.height);
+      output = await canvasBlob(canvas, "image/webp", Math.max(0.68, 0.9 - attempt * 0.035));
+      if (output.size <= SAFE_IMAGE_BYTES) break;
+      scale *= 0.8;
+    }
+    if (!output || output.size > SAFE_IMAGE_BYTES) throw new Error("The token image could not be reduced below the 2 MB provider limit.");
+    return `data:image/webp;base64,${bytesToBase64(new Uint8Array(await output.arrayBuffer()))}`;
+  } finally {
+    URL.revokeObjectURL(decoded.source);
+  }
+}
 
 function currentMultiIds() { return [...document.querySelectorAll('.multi-options input:checked')].map((input) => input.value); }
+function walletRouteForProvider(providerId) { return ["stonkfun", "pumpfun", "ember", "bags"].includes(providerId) ? "solana" : providerId === "fourmeme" ? "flap" : ["clanker", "arcpad", "long"].includes(providerId) ? "external" : providerId; }
+function providerForWalletRoute(route) { return route === "solana" ? "pumpfun" : route; }
+function selectedWalletRoutes(ids = currentMultiIds()) { return [...new Set(ids.map(walletRouteForProvider))]; }
+function linkValue(providerSelector, sharedSelector) {
+  return $(providerSelector).value.trim() || (launchMode === "multi" ? $(sharedSelector).value.trim() : "");
+}
 
 function renderProviderCosts(providerId = selected.dataset.provider) {
   const cost = { ...providerCosts[providerId] };
@@ -181,6 +454,16 @@ function detectedEvmWallets() {
   return unique;
 }
 
+function detectedSolanaWallets() {
+  const candidates = [
+    { provider: window.phantom?.solana, name: "Phantom", key: "phantom", order: 1 },
+    { provider: window.solflare, name: "Solflare", key: "solflare", order: 2 },
+    { provider: window.backpack, name: "Backpack", key: "backpack", order: 3 },
+    { provider: window.solana, name: window.solana?.isPhantom ? "Phantom" : "Solana wallet", key: window.solana?.isPhantom ? "phantom" : "solana", order: 9 },
+  ].filter((wallet) => wallet.provider);
+  return candidates.filter((wallet, index) => candidates.findIndex((item) => item.provider === wallet.provider) === index);
+}
+
 function closeWalletChooser(reason = "Wallet connection cancelled.") {
   const chooser = $("#walletChooser");
   chooser.classList.remove("open"); chooser.setAttribute("aria-hidden", "true");
@@ -188,7 +471,9 @@ function closeWalletChooser(reason = "Wallet connection cancelled.") {
 }
 
 function renderWalletOptions() {
-  const wallets = detectedEvmWallets();
+  const { kind, preferredKey, network } = walletChooserState;
+  const wallets = (kind === "solana" ? detectedSolanaWallets() : detectedEvmWallets())
+    .sort((a, b) => Number(b.key === preferredKey) - Number(a.key === preferredKey) || a.order - b.order);
   const container = $("#walletOptions"); container.replaceChildren();
   wallets.forEach((wallet) => {
     const button = document.createElement("button"); button.type = "button";
@@ -196,7 +481,7 @@ function renderWalletOptions() {
     if (wallet.info?.icon?.startsWith("data:image/")) { badge = document.createElement("img"); badge.src = wallet.info.icon; badge.alt = ""; }
     else { badge = document.createElement("span"); badge.className = `wallet-fallback ${wallet.key}`; badge.textContent = wallet.name.slice(0, 1); }
     const label = document.createElement("span"); const name = document.createElement("b"); const detail = document.createElement("small");
-    name.textContent = wallet.name; detail.textContent = "Detected in this browser"; label.append(name, detail);
+    name.textContent = wallet.name; detail.textContent = wallet.key === preferredKey ? `Recommended for ${network}` : "Detected in this browser"; label.append(name, detail);
     const arrow = document.createElement("i"); arrow.textContent = "→"; button.append(badge, label, arrow);
     button.addEventListener("click", () => {
       if (!walletChoiceResolver) return;
@@ -206,34 +491,92 @@ function renderWalletOptions() {
     });
     container.append(button);
   });
-  $("#walletDetection").textContent = wallets.length ? `${wallets.length} wallet${wallets.length === 1 ? "" : "s"} detected` : "No EVM wallet detected. Install MetaMask or Trust Wallet, then refresh.";
+  $("#walletDetection").textContent = wallets.length
+    ? `${wallets.length} compatible wallet${wallets.length === 1 ? "" : "s"} detected`
+    : kind === "solana" ? "No Solana wallet detected. Install Phantom, Solflare or Backpack, then refresh." : "No EVM wallet detected. Install MetaMask or Trust Wallet, then refresh.";
 }
 
-function chooseEvmWallet() {
-  window.dispatchEvent(new Event("eip6963:requestProvider"));
+function chooseWallet({ kind, preferredKey = "", network = "" }) {
+  if (kind === "evm") window.dispatchEvent(new Event("eip6963:requestProvider"));
   return new Promise((resolve, reject) => {
+    walletChooserState = { kind, preferredKey, network };
     walletChoiceResolver = { resolve, reject };
     const chooser = $("#walletChooser"); chooser.classList.add("open"); chooser.setAttribute("aria-hidden", "false");
+    $("#walletChooserKicker").textContent = kind === "solana" ? "Solana signer" : `${network} signer`;
+    $("#walletChooserTitle").textContent = "Choose your wallet";
+    $("#walletChooserCopy").textContent = kind === "solana"
+      ? "Choose the Solana wallet used by the selected StonkFun, Pump.fun and Ember routes."
+      : `Choose the wallet used by ${network}. ${preferredKey === "metamask" ? "MetaMask" : "Trust Wallet"} is recommended, but another compatible wallet can be selected.`;
     renderWalletOptions();
     setTimeout(renderWalletOptions, 250);
   });
 }
 
-async function connectWallet() {
-  if (["pons", "flap"].includes(selected.dataset.provider)) {
-    const wallet = await chooseEvmWallet();
-    evmProvider = wallet.provider; evmWalletName = wallet.name;
-    const accounts = await evmProvider.request({ method: "eth_requestAccounts" });
-    walletAddress = accounts[0]; walletType = "evm";
-  } else {
-    const wallet = window.phantom?.solana || window.solana;
-    if (!wallet?.isPhantom) throw new Error("Install Phantom to sign Solana launches.");
-    const result = await wallet.connect();
-    walletAddress = result.publicKey.toString(); walletType = "solana";
+function activateConnection(route) {
+  const connection = walletConnections[route];
+  if (!connection) return null;
+  walletAddress = connection.address;
+  walletType = connection.kind;
+  evmProvider = connection.kind === "evm" ? connection.provider : null;
+  evmWalletName = connection.name;
+  return connection;
+}
+
+function updateWalletUi() {
+  const routes = launchMode === "multi" ? selectedWalletRoutes() : [walletRouteForProvider(selected.dataset.provider)];
+  if (launchMode === "single" && routes[0] === "external") {
+    document.querySelectorAll("[data-wallet]").forEach((button) => { button.textContent = "Wallet at provider"; });
+    return;
   }
-  document.querySelectorAll("[data-wallet]").forEach((button) => { button.textContent = shortAddress(walletAddress); });
-  showToast(`${evmWalletName || "Wallet"} connected.`);
-  return walletAddress;
+  const connected = routes.filter((route) => walletConnections[route]).length;
+  document.querySelectorAll("[data-wallet]").forEach((button) => {
+    if (launchMode === "multi" && routes.length > 1) button.textContent = connected ? `${connected}/${routes.length} wallets` : "Connect wallets";
+    else button.textContent = walletConnections[routes[0]] ? shortAddress(walletConnections[routes[0]].address) : "Connect wallet";
+  });
+  ["solana", "pons", "flap"].forEach((route) => {
+    const status = $(`#${route}SignerStatus`);
+    if (!status) return;
+    const connection = walletConnections[route];
+    status.textContent = connection ? `${connection.name} · ${shortAddress(connection.address)}` : "Connect";
+    status.closest("button").classList.toggle("connected", Boolean(connection));
+  });
+}
+
+async function connectWallet(providerId = selected.dataset.provider) {
+  const route = walletRouteForProvider(providerId);
+  if (route === "external") throw new Error("This route connects your wallet on the provider’s verified launch page.");
+  if (route === "solana") {
+    const wallet = await chooseWallet({ kind: "solana", preferredKey: "phantom", network: "Solana" });
+    const result = await wallet.provider.connect();
+    const address = (result?.publicKey || wallet.provider.publicKey)?.toString();
+    if (!address) throw new Error("The Solana wallet did not return an address.");
+    walletConnections.solana = { provider: wallet.provider, address, name: wallet.name, kind: "solana" };
+  } else {
+    const preferredKey = route === "pons" ? "metamask" : "trust";
+    const network = route === "pons" ? "Robinhood Chain" : "BNB Chain";
+    const wallet = await chooseWallet({ kind: "evm", preferredKey, network });
+    const accounts = await wallet.provider.request({ method: "eth_requestAccounts" });
+    if (!accounts?.[0]) throw new Error(`${wallet.name} did not return an account.`);
+    walletConnections[route] = { provider: wallet.provider, address: accounts[0], name: wallet.name, kind: "evm" };
+  }
+  const connection = activateConnection(route);
+  updateWalletUi();
+  showToast(`${connection.name} connected for ${route === "solana" ? "Solana" : route === "pons" ? "Pons" : "Flap"}.`);
+  return connection;
+}
+
+async function activateWalletForProvider(providerId) {
+  const route = walletRouteForProvider(providerId);
+  return activateConnection(route) || connectWallet(providerId);
+}
+
+async function connectNextWallet() {
+  if (launchMode !== "multi") return connectWallet(selected.dataset.provider);
+  const ids = currentMultiIds();
+  if (!ids.length) throw new Error("Select launchpads first.");
+  const route = selectedWalletRoutes(ids).find((item) => !walletConnections[item]);
+  if (!route) { showToast("All selected signer wallets are connected."); return activateConnection(walletRouteForProvider(selected.dataset.provider)); }
+  return connectWallet(providerForWalletRoute(route));
 }
 
 async function selectProvider(button) {
@@ -248,7 +591,7 @@ async function selectProvider(button) {
   $("#routeDescription").textContent = content.description;
   $("#heroNetwork").textContent = button.dataset.chain;
   $("#heroMechanic").textContent = content.mechanic;
-  $("#formHint").textContent = content.hint;
+  if (launchMode === "single") $("#formHint").textContent = content.hint;
   $("#sideLogo").src = content.logo;
   $("#sideLogo").alt = `${button.dataset.name} logo`;
   renderProviderCosts(providerId);
@@ -257,8 +600,15 @@ async function selectProvider(button) {
   $("#ponsOptions").hidden = button.dataset.provider !== "pons";
   $("#flapOptions").hidden = button.dataset.provider !== "flap";
   $("#emberOptions").hidden = button.dataset.provider !== "ember";
+  $("#fourMemeOptions").hidden = button.dataset.provider !== "fourmeme";
+  $("#bagsOptions").hidden = button.dataset.provider !== "bags";
+  $("#clankerOptions").hidden = button.dataset.provider !== "clanker";
+  $("#arcpadOptions").hidden = button.dataset.provider !== "arcpad";
+  $("#longOptions").hidden = button.dataset.provider !== "long";
+  $("#routeStatus").textContent = button.dataset.handoff === "true" ? "HANDOFF" : "READY";
   await Promise.all([loadQuote(), loadPairs()]);
   restoreProviderDraft(providerId);
+  updateWalletUi();
 }
 
 async function loadQuote() {
@@ -301,9 +651,9 @@ async function checkApi() {
     const [healthResponse, providersResponse] = await Promise.all([fetch(`${apiUrl}/health`), fetch(`${apiUrl}/v1/providers`)]);
     if (!healthResponse.ok || !providersResponse.ok) throw new Error();
     const providerState = await providersResponse.json();
-    const ready = Array.isArray(providerState.data) && providerState.data.length === 5 && providerState.data.every((provider) => provider.execution !== "configuration_required");
+    const ready = Array.isArray(providerState.data) && providerState.data.length >= 10 && providerState.data.every((provider) => provider.execution !== "configuration_required");
     if (!ready) throw new Error();
-    $("#apiStatus").textContent = "5 launch routes online";
+    $("#apiStatus").textContent = "10 launch routes online";
     $("#apiStatus").parentElement.classList.add("online");
   }
   catch { $("#apiStatus").textContent = "Interface mode"; }
@@ -311,23 +661,52 @@ async function checkApi() {
 
 function setLaunchMode(mode) {
   launchMode = mode;
+  document.body.dataset.launchMode = mode;
   document.querySelectorAll(".mode-button").forEach((button) => button.classList.toggle("active", button.dataset.mode === mode));
   $("#multiPicker").hidden = mode !== "multi";
-  $("#reviewButtonText").textContent = mode === "multi" ? "Review multi-launch" : "Review launch";
+  $("#multiSharedIntro").hidden = mode !== "multi";
+  $("#multiSharedDetails").hidden = mode !== "multi";
+  $("#tokenDetailsTitle").textContent = mode === "multi" ? "Shared token details" : "Token details";
+  $("#formHint").textContent = mode === "multi" ? "One form · up to six direct launches" : providerContent[selected.dataset.provider].hint;
+  $("#sharedX").required = false;
+  $("#sharedXLabel").textContent = "X / Twitter";
+  $("#reviewButtonText").textContent = mode === "multi" ? "Review selected launches" : "Review launch";
   if (mode === "multi") updateMultiSelection();
+  else updateWalletUi();
+}
+
+function updateMultiWalletRouting(ids) {
+  const routes = selectedWalletRoutes(ids);
+  $("#multiWalletRouting").hidden = ids.length === 0;
+  document.querySelectorAll("[data-signer-route]").forEach((button) => { button.hidden = !routes.includes(button.dataset.signerRoute); });
+  updateWalletUi();
 }
 
 function updateMultiSelection() {
   const checked = currentMultiIds();
-  document.querySelectorAll(".multi-options input").forEach((input) => { input.disabled = checked.length >= 4 && !input.checked; });
-  $("#multiStatus").textContent = checked.length === 4 ? "4 of 4 selected · ready to review" : `${checked.length} of 4 selected`;
-  $("#multiStatus").classList.toggle("ready", checked.length === 4);
+  const ready = checked.length >= 1;
+  const pumpSelected = checked.includes("pumpfun");
+  $("#sharedX").required = pumpSelected;
+  $("#sharedXLabel").textContent = pumpSelected ? "X post URL · required by Pump.fun" : "X / Twitter";
+  $("#sharedX").placeholder = pumpSelected ? "https://x.com/.../status/..." : "https://x.com/...";
+  $("#multiStatus").textContent = ready ? `${checked.length} launchpad${checked.length === 1 ? "" : "s"} selected · ready to launch` : "0 launchpads selected";
+  $("#multiStatus").classList.toggle("ready", ready);
+  const available = document.querySelectorAll(".multi-options input").length;
+  $("#selectAllRails").textContent = checked.length === available ? "Clear selection" : `Select all ${available}`;
+  updateMultiWalletRouting(checked);
 }
 
 providers.forEach((button) => button.addEventListener("click", () => selectProvider(button)));
 document.querySelectorAll(".mode-button").forEach((button) => button.addEventListener("click", () => setLaunchMode(button.dataset.mode)));
 document.querySelectorAll(".multi-options input").forEach((input) => input.addEventListener("change", updateMultiSelection));
-document.querySelectorAll("[data-wallet]").forEach((button) => button.addEventListener("click", async () => { try { await connectWallet(); } catch (error) { showToast(error.message); } }));
+$("#selectAllRails").addEventListener("click", () => {
+  const inputs = [...document.querySelectorAll(".multi-options input")];
+  const selectAll = inputs.some((input) => !input.checked);
+  inputs.forEach((input) => { input.checked = selectAll; });
+  updateMultiSelection();
+});
+document.querySelectorAll("[data-wallet]").forEach((button) => button.addEventListener("click", async () => { try { await connectNextWallet(); } catch (error) { showToast(readableError(error)); } }));
+document.querySelectorAll("[data-connect-provider]").forEach((button) => button.addEventListener("click", async () => { try { await connectWallet(button.dataset.connectProvider); } catch (error) { showToast(readableError(error)); } }));
 $("#closeWalletChooser").addEventListener("click", () => closeWalletChooser());
 $("#walletChooserBackdrop").addEventListener("click", () => closeWalletChooser());
 $("#emberFee").addEventListener("change", () => renderProviderCosts());
@@ -344,16 +723,34 @@ $("#stonkDevMode").addEventListener("change", () => {
   $("#stonkDevBuy").max = sol ? "" : "50";
 });
 
-$("#assetImage").addEventListener("change", (event) => {
-  const file = event.target.files[0]; if (!file) return;
-  if (file.size > 4_000_000) { showToast("Use an image smaller than 4 MB."); event.target.value = ""; return; }
-  const reader = new FileReader(); reader.onload = () => { imageData = String(reader.result); $("#imagePreview").src = imageData; $("#imagePreview").style.display = "block"; $("#uploadText").style.display = "none"; }; reader.readAsDataURL(file);
+$("#assetImage").addEventListener("change", async (event) => {
+  const input = event.target;
+  const file = input.files[0];
+  if (!file) return;
+  imageData = "";
+  input.disabled = true;
+  $("#uploadText").innerHTML = "<b>…</b><small>Preparing</small>";
+  $("#uploadText").style.display = "block";
+  $("#imagePreview").style.display = "none";
+  try {
+    imageData = await normalizeTokenImage(file);
+    $("#imagePreview").src = imageData;
+    $("#imagePreview").style.display = "block";
+    $("#uploadText").style.display = "none";
+    showToast("Image ready for every selected launchpad.");
+  } catch (error) {
+    input.value = "";
+    $("#uploadText").innerHTML = "<b>+</b><small>Add image</small>";
+    showToast(readableError(error, "Could not prepare that image."));
+  } finally {
+    input.disabled = false;
+  }
 });
 
 function multiReadiness(ids) {
   const issues = [];
   if (ids.length && !imageData) issues.push("add a token image");
-  if (ids.includes("pumpfun") && !$("#xUrl").value.trim()) issues.push("add Pump.fun’s X post URL");
+  if (ids.includes("pumpfun") && !$("#sharedX").value.trim()) issues.push("add an X post URL in Project links for Pump.fun");
   return issues;
 }
 
@@ -401,30 +798,32 @@ function updateQueueStatus(id, state, detail = "") {
 $("#launchForm").addEventListener("submit", (event) => {
   event.preventDefault(); captureProviderDraft();
   launchAttemptId = window.crypto.randomUUID();
+  launchAttemptCreatedAt = new Date().toISOString();
   const ticker = $("#ticker").value.trim().toUpperCase();
   $("#summaryName").textContent = $("#marketName").value.trim(); $("#summaryTicker").textContent = "$" + ticker;
   if (launchMode === "multi") {
-    const ids = currentMultiIds().sort((a, b) => (["stonkfun", "pumpfun", "ember"].includes(a) ? 0 : 1) - (["stonkfun", "pumpfun", "ember"].includes(b) ? 0 : 1));
-    if (ids.length !== 4) { $("#multiStatus").textContent = "Select exactly four launchpads first."; showToast("Choose exactly four launchpads."); return; }
+    const launchOrder = ["stonkfun", "pumpfun", "ember", "pons", "flap", "fourmeme"];
+    const ids = currentMultiIds().sort((a, b) => launchOrder.indexOf(a) - launchOrder.indexOf(b));
+    if (ids.length < 1) { $("#multiStatus").textContent = "Choose at least one launchpad first."; showToast("Choose at least one launchpad."); return; }
     const issues = multiReadiness(ids);
     if (issues.length) { const message = `Before multi-launch: ${issues.join("; ")}.`; $("#multiStatus").textContent = message; showToast(message); return; }
     activeMultiIds = ids; multiResults.clear(); renderLaunchQueue(ids);
-    $("#reviewTitle").textContent = "Review 4 launches";
+    $("#reviewTitle").textContent = ids.length === 1 ? "Review selected launch" : `Review ${ids.length} launches`;
     $("#summaryLogo").src = providerContent[ids[0]].logo; $("#summaryLogo").alt = "Selected launchpads";
-    $("#summaryProvider").textContent = "4 launchpads";
+    $("#summaryProvider").textContent = `${ids.length} launchpad${ids.length === 1 ? "" : "s"}`;
     $("#singleSummary").hidden = true; $("#launchQueue").hidden = false;
-    $("#riskNote").textContent = "One button starts the queue, but every network still asks for its own wallet approval. Successful launches cannot be rolled back if another rail fails.";
-    $("#launchNow").textContent = "Start 4-launch sequence";
-    $("#intentMessage").textContent = "Keep this window open while the four provider transactions are prepared.";
+    $("#riskNote").textContent = "One button starts every selected launch. Each network still shows its own wallet confirmation, and completed launches cannot be reversed.";
+    $("#launchNow").textContent = ids.length === 1 ? "Start selected launch" : `Start all ${ids.length} launches`;
+    $("#intentMessage").textContent = `Keep this window open while ${ids.length} selected launch${ids.length === 1 ? " is" : "es are"} prepared.`;
   } else {
     $("#reviewTitle").textContent = "Review launch";
     $("#summaryLogo").src = providerContent[selected.dataset.provider].logo; $("#summaryLogo").alt = `${selected.dataset.name} logo`;
     $("#summaryProvider").textContent = selected.dataset.name; $("#summaryRoute").textContent = selected.dataset.name; $("#summaryNetwork").textContent = selected.dataset.chain;
-    const launchAmount = selected.dataset.provider === "stonkfun" ? $("#stonkDevBuy").value : selected.dataset.provider === "pons" ? $("#ponsDevBuy").value : selected.dataset.provider === "flap" ? $("#flapInitialBuy").value : "0";
+    const launchAmount = selected.dataset.provider === "stonkfun" ? $("#stonkDevBuy").value : selected.dataset.provider === "pons" ? $("#ponsDevBuy").value : selected.dataset.provider === "flap" ? $("#flapInitialBuy").value : selected.dataset.provider === "fourmeme" ? $("#fourMemePresale").value : selected.dataset.provider === "bags" ? `${$("#bagsInitialBuy").value || 0} USD` : "0";
     $("#summaryBuy").textContent = launchAmount || "0"; $("#summaryFee").textContent = `${$("#providerFee").textContent} · Anything 0%`;
     $("#singleSummary").hidden = false; $("#launchQueue").hidden = true;
     $("#riskNote").textContent = "This creates an on-chain asset. Verify every amount and address in your wallet before signing; transactions cannot be reversed.";
-    $("#launchNow").textContent = `Connect & launch on ${selected.dataset.name}`; $("#intentMessage").textContent = "Your wallet will show the final network transaction before anything is submitted.";
+    $("#launchNow").textContent = selected.dataset.handoff === "true" ? `Continue to ${selected.dataset.name}` : `Connect & launch on ${selected.dataset.name}`; $("#intentMessage").textContent = selected.dataset.handoff === "true" ? "You will finish and sign on the provider’s verified launch page." : "Your wallet will show the final network transaction before anything is submitted.";
   }
   $("#drawer").classList.add("open"); $("#drawer").setAttribute("aria-hidden", "false");
 });
@@ -433,11 +832,11 @@ $("#closeDrawer").addEventListener("click", closeDrawer); $("#backdrop").addEven
 
 async function launchStonk() {
   if (!imageData) throw new Error("Add a token image first.");
-  if (walletType !== "solana") await connectWallet();
+  const connection = await activateWalletForProvider("stonkfun");
   await ensureSolanaTools();
-  const wallet = window.phantom?.solana || window.solana;
+  const wallet = connection.provider;
   const devValue = Number($("#stonkDevBuy").value || 0);
-  const body = { provider: "stonkfun", creatorWallet: walletAddress, quoteMint: $("#pairSelect").value, name: $("#marketName").value, ticker: $("#ticker").value, mode: $("#stonkMode").value, logo: imageData, feeTier: $("#stonkFeeTier").value, transferFeeBps: Number($("#stonkRewardTax").value), airdropPercent: Number($("#stonkAirdrop").value || 0), airdropTier: $("#stonkAirdropTier").value, links: { website: $("#stonkWebsite").value, x: $("#stonkX").value, telegram: $("#stonkTelegram").value } };
+  const body = { provider: "stonkfun", creatorWallet: walletAddress, quoteMint: $("#pairSelect").value, name: $("#marketName").value, ticker: $("#ticker").value, mode: $("#stonkMode").value, logo: imageData, feeTier: $("#stonkFeeTier").value, transferFeeBps: Number($("#stonkRewardTax").value), airdropPercent: Number($("#stonkAirdrop").value || 0), airdropTier: $("#stonkAirdropTier").value, links: { website: linkValue("#stonkWebsite", "#sharedWebsite"), x: linkValue("#stonkX", "#sharedX"), telegram: linkValue("#stonkTelegram", "#sharedTelegram") } };
   if (devValue > 0) body[$("#stonkDevMode").value === "sol" ? "devBuySol" : "devBuyPercent"] = devValue;
   const response = await fetch(`${apiUrl}/v1/launches/prepare`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body) });
   const prepared = await response.json(); if (!response.ok) throw new Error(readableError(prepared, "Could not prepare launch."));
@@ -445,23 +844,25 @@ async function launchStonk() {
   const signed = await wallet.signTransaction(transaction);
   const submit = await fetch(`${apiUrl}/v1/launches/submit`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ provider: "stonkfun", signedQuote: prepared.signedQuote, signedTransaction: bytesToBase64(signed.serialize()), logo: imageData }) });
   const result = await submit.json(); if (!submit.ok) throw new Error(readableError(result, "Launch submission failed."));
-  return { message: `StonkFun launch submitted${result.paymentSignature ? ` · ${shortAddress(result.paymentSignature)}` : ""}.`, url: result.url || result.explorerUrl };
+  return { message: `StonkFun launch submitted${result.paymentSignature ? ` · ${shortAddress(result.paymentSignature)}` : ""}.`, address: result.mint || result.token || result.address || result.mintAddress || result.tokenMint || result.contractAddress || "", url: result.url || result.explorerUrl };
 }
 
 async function launchPump() {
-  if (!$("#xUrl").value.trim() || !$("#pairSelect").value) throw new Error("Pump.fun requires an X post URL and launch pair.");
+  const pumpXUrl = launchMode === "multi" ? $("#sharedX").value.trim() : $("#xUrl").value.trim();
+  if (!pumpXUrl || !$("#pairSelect").value) throw new Error("Pump.fun requires an X post URL and launch pair.");
+  const connection = await activateWalletForProvider("pumpfun");
   const imageUrl = await uploadTokenImage("Uploading your Pump.fun token image…");
-  const body = { provider: "pumpfun", idempotencyKey: `${launchAttemptId}:pumpfun`, name: $("#marketName").value, ticker: $("#ticker").value, description: $("#description").value || "Launch from Anything", imageUrl, xUrl: $("#xUrl").value.trim(), pairSymbol: $("#pairSelect").value, creatorFeeBps: 0, cashback: $("#pumpRewards").value === "holders", mayhemMode: $("#pumpMayhem").checked };
+  const body = { provider: "pumpfun", idempotencyKey: `${launchAttemptId}:pumpfun`, creatorWallet: connection.address, name: $("#marketName").value, ticker: $("#ticker").value, description: $("#description").value || "Launch from Anything", imageUrl, xUrl: pumpXUrl, pairSymbol: $("#pairSelect").value, creatorFeeBps: 0, cashback: $("#pumpRewards").value === "holders", mayhemMode: $("#pumpMayhem").checked, links: { website: $("#sharedWebsite").value.trim(), x: $("#sharedX").value.trim(), telegram: $("#sharedTelegram").value.trim() } };
   const response = await fetch(`${apiUrl}/v1/launches/prepare`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body) });
   const result = await response.json(); if (!response.ok) throw new Error(readableError(result, "Pump.fun launch failed."));
-  return { message: `Pump.fun launch submitted${result.mint ? ` · ${shortAddress(result.mint)}` : ""}.`, url: result.url || result.explorerUrl };
+  return { message: `Pump.fun launch submitted${result.mint ? ` · ${shortAddress(result.mint)}` : ""}.`, address: result.mint || result.token || result.address || result.mintAddress || result.tokenMint || result.contractAddress || "", url: result.url || result.explorerUrl };
 }
 
 async function launchPons() {
-  if (walletType !== "evm") await connectWallet();
+  const connection = await activateWalletForProvider("pons");
   await ensureEvmTools();
   const logo = await uploadTokenImage("Uploading your Pons token image…");
-  const provider = evmProvider;
+  const provider = connection.provider;
   try { await provider.request({ method: "wallet_switchEthereumChain", params: [{ chainId: "0x1237" }] }); }
   catch (error) { if (error?.code !== 4902) throw error; await provider.request({ method: "wallet_addEthereumChain", params: [{ chainId: "0x1237", chainName: "Robinhood Chain", nativeCurrency: { name: "Ether", symbol: "ETH", decimals: 18 }, rpcUrls: [RH_RPC], blockExplorerUrls: ["https://robinhoodchain.blockscout.com"] }] }); }
   const publicClient = createPublicClient({ chain: robinhoodChain, transport: http(RH_RPC) });
@@ -477,7 +878,7 @@ async function launchPons() {
   if (!/^0x[a-fA-F0-9]{40}$/.test(creatorWallet)) throw new Error("Enter a valid Pons creator payout wallet.");
   const exemptions = $("#ponsExemptions").value.split(/[\s,]+/).map((item) => item.trim()).filter(Boolean);
   if (exemptions.length > 30 || exemptions.some((item) => !/^0x[a-fA-F0-9]{40}$/.test(item))) throw new Error("Use up to 30 valid EVM addresses for snipe-tax exemptions.");
-  const params = { name: $("#marketName").value, symbol: $("#ticker").value.toUpperCase(), logo, description: $("#description").value, socials: { twitter: $("#ponsX").value, telegram: $("#ponsTelegram").value, discord: "", website: $("#websiteUrl").value, farcaster: "" }, creatorFeeRecipient: creatorWallet, creatorTaxBps: Math.round(Number($("#ponsCreatorTax").value || 0) * 100), buybackEnabled: true, expectedEconomics: economics, salt: keccak256(toHex(`anything:${walletAddress}:${Date.now()}`)) };
+  const params = { name: $("#marketName").value, symbol: $("#ticker").value.toUpperCase(), logo, description: $("#description").value, socials: { twitter: linkValue("#ponsX", "#sharedX"), telegram: linkValue("#ponsTelegram", "#sharedTelegram"), discord: "", website: linkValue("#websiteUrl", "#sharedWebsite"), farcaster: "" }, creatorFeeRecipient: creatorWallet, creatorTaxBps: Math.round(Number($("#ponsCreatorTax").value || 0) * 100), buybackEnabled: true, expectedEconomics: economics, salt: keccak256(toHex(`anything:${walletAddress}:${Date.now()}`)) };
   const devBuy = Number($("#ponsDevBuy").value || 0);
   let hash;
   if (devBuy > 0) {
@@ -515,7 +916,7 @@ async function launchPons() {
     const routeHash = await walletClient.writeContract({ address: PONS_FACTORY, abi: factoryAbi, functionName: "transferCreatorFeeRecipient", args: [token, distributor] });
     await publicClient.waitForTransactionReceipt({ hash: routeHash, confirmations: 1, timeout: 180000 });
   }
-  return { message: `Pons launch confirmed${token ? ` · ${shortAddress(token)}` : ""}.`, url: `https://robinhoodchain.blockscout.com/tx/${hash}` };
+  return { message: `Pons launch confirmed${token ? ` · ${shortAddress(token)}` : ""}.`, address: token, url: token ? `https://robinhoodchain.blockscout.com/token/${token}` : `https://robinhoodchain.blockscout.com/tx/${hash}` };
 }
 
 async function switchToBnb() {
@@ -534,8 +935,9 @@ function findFlapSalt() {
 
 async function launchFlap() {
   if (!imageData) throw new Error("Add a token image first.");
-  if (walletType !== "evm") await connectWallet();
+  const connection = await activateWalletForProvider("flap");
   await ensureEvmTools();
+  evmProvider = connection.provider;
   await switchToBnb();
   const publicClient = createPublicClient({ chain: bnbChain, transport: http(BSC_RPC) });
   const walletClient = createWalletClient({ account: walletAddress, chain: bnbChain, transport: custom(evmProvider) });
@@ -546,7 +948,7 @@ async function launchFlap() {
   const minimumGas = parseUnits("0.01", 18);
   if (balance < minimumGas + (quoteToken === ZERO ? quoteAmt : 0n)) throw new Error("This wallet needs more BNB for launch gas and the selected initial buy.");
   $("#intentMessage").textContent = "Uploading artwork to Flap IPFS…";
-  const upload = await fetch(`${apiUrl}/v1/metadata/flap`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ logo: imageData, creatorWallet: walletAddress, description: $("#description").value, website: $("#flapWebsite").value || "", x: $("#flapX").value || "", telegram: $("#flapTelegram").value || "" }) });
+  const upload = await fetch(`${apiUrl}/v1/metadata/flap`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ logo: imageData, creatorWallet: walletAddress, description: $("#description").value, website: linkValue("#flapWebsite", "#sharedWebsite"), x: linkValue("#flapX", "#sharedX"), telegram: linkValue("#flapTelegram", "#sharedTelegram") }) });
   const metadata = await upload.json(); if (!upload.ok || !metadata.cid) throw new Error(metadata.error || "Flap metadata upload failed.");
   $("#intentMessage").textContent = "Reserving a Flap 7777 token address…";
   const vanity = findFlapSalt();
@@ -560,28 +962,105 @@ async function launchFlap() {
   $("#intentMessage").textContent = "Confirm the Flap launch in your wallet…";
   const hash = await walletClient.writeContract({ address: FLAP_PORTAL, abi: flapPortalAbi, functionName: "newTokenV6", args: [params], value: quoteToken === ZERO ? quoteAmt : 0n });
   const receipt = await publicClient.waitForTransactionReceipt({ hash, confirmations: 1, timeout: 180000 }); if (receipt.status !== "success") throw new Error("Flap launch transaction reverted.");
-  return { message: `Flap token live · ${shortAddress(vanity.address)}.`, url: `https://flap.sh/bnb/${vanity.address}` };
+  return { message: `Flap token live · ${shortAddress(vanity.address)}.`, address: vanity.address, url: `https://flap.sh/bnb/${vanity.address}` };
+}
+
+async function launchFourMeme() {
+  if (!imageData) throw new Error("Add a token image first.");
+  const connection = await activateWalletForProvider("fourmeme");
+  await ensureEvmTools();
+  evmProvider = connection.provider;
+  await switchToBnb();
+  const publicClient = createPublicClient({ chain: bnbChain, transport: http(BSC_RPC) });
+  const walletClient = createWalletClient({ account: connection.address, chain: bnbChain, transport: custom(evmProvider) });
+  $("#intentMessage").textContent = "Requesting a Four.meme wallet login…";
+  const nonceResponse = await fetch(`${apiUrl}/v1/fourmeme/nonce`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ accountAddress: connection.address }) });
+  const nonceData = await responseJson(nonceResponse, "Four.meme login returned an invalid response.");
+  if (!nonceResponse.ok || !nonceData.nonce) throw new Error(readableError(nonceData, "Four.meme login could not start."));
+  const loginSignature = await walletClient.signMessage({ account: connection.address, message: `You are sign in Meme ${nonceData.nonce}` });
+  $("#intentMessage").textContent = "Uploading artwork and preparing Four.meme…";
+  const prepareResponse = await fetch(`${apiUrl}/v1/fourmeme/prepare`, {
+    method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({
+      accountAddress: connection.address, loginSignature, walletName: connection.name, logo: imageData,
+      name: $("#marketName").value, ticker: $("#ticker").value, description: $("#description").value,
+      label: $("#fourMemeLabel").value, preSale: $("#fourMemePresale").value,
+      links: { website: linkValue("#fourMemeWebsite", "#sharedWebsite"), x: linkValue("#fourMemeX", "#sharedX"), telegram: linkValue("#fourMemeTelegram", "#sharedTelegram") },
+    }),
+  });
+  const prepared = await responseJson(prepareResponse, "Four.meme launch preparation returned an invalid response.");
+  if (!prepareResponse.ok || !prepared.createArg || !prepared.signature || !prepared.coreAddress) throw new Error(readableError(prepared, "Four.meme launch preparation failed."));
+  const value = BigInt(prepared.txValue || "0");
+  $("#intentMessage").textContent = "Confirm the Four.meme launch in your BNB wallet…";
+  const hash = await walletClient.writeContract({ address: prepared.coreAddress, abi: fourMemeAbi, functionName: "createToken", args: [prepared.createArg, prepared.signature], value });
+  const receipt = await publicClient.waitForTransactionReceipt({ hash, confirmations: 1, timeout: 180000 });
+  if (receipt.status !== "success") throw new Error("Four.meme launch transaction reverted.");
+  return { message: "Four.meme token launch confirmed.", address: prepared.tokenAddress || prepared.token || prepared.address || prepared.contractAddress || "", url: prepared.tokenAddress || prepared.token || prepared.address ? `https://four.meme/token/${prepared.tokenAddress || prepared.token || prepared.address || prepared.contractAddress}` : `https://bscscan.com/tx/${hash}` };
 }
 
 async function launchEmber() {
   if (!imageData) throw new Error("Add a token image first.");
-  if (walletType !== "solana") await connectWallet();
+  const connection = await activateWalletForProvider("ember");
   await ensureSolanaTools();
-  const wallet = window.phantom?.solana || window.solana;
+  const wallet = connection.provider;
   $("#intentMessage").textContent = "Uploading artwork to Ember…";
-  const upload = await fetch(`${apiUrl}/v1/metadata/ember`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ logo: imageData, name: $("#marketName").value.trim(), ticker: $("#ticker").value.trim().toUpperCase(), description: $("#description").value, website: $("#emberWebsite").value || "", x: $("#emberX").value || "", telegram: $("#emberTelegram").value || "" }) });
+  const upload = await fetch(`${apiUrl}/v1/metadata/ember`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ logo: imageData, name: $("#marketName").value.trim(), ticker: $("#ticker").value.trim().toUpperCase(), description: $("#description").value, website: linkValue("#emberWebsite", "#sharedWebsite"), x: linkValue("#emberX", "#sharedX"), telegram: linkValue("#emberTelegram", "#sharedTelegram") }) });
   const metadata = await upload.json(); if (!upload.ok || !metadata.uri) throw new Error(metadata.error || "Ember metadata upload failed.");
-  const prepare = await fetch(`${apiUrl}/v1/launches/prepare`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ provider: "ember", creatorWallet: walletAddress, name: $("#marketName").value, ticker: $("#ticker").value, description: $("#description").value, uri: metadata.uri, image: metadata.image, links: { website: $("#emberWebsite").value || "", x: $("#emberX").value || "", telegram: $("#emberTelegram").value || "" }, quoteMint: $("#pairSelect").value, feeBps: Number($("#emberFee").value), graduateUsd: Number($("#emberGraduate").value), mode: $("#emberMode").value, payout: $("#emberPayout").value, addons: { shield: $("#emberShield").checked, volatilityFee: $("#emberVolatility").checked, airdropPct: $("#emberAirdrop").checked ? 5 : 0 } }) });
+  const prepare = await fetch(`${apiUrl}/v1/launches/prepare`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ provider: "ember", creatorWallet: walletAddress, name: $("#marketName").value, ticker: $("#ticker").value, description: $("#description").value, uri: metadata.uri, image: metadata.image, links: { website: linkValue("#emberWebsite", "#sharedWebsite"), x: linkValue("#emberX", "#sharedX"), telegram: linkValue("#emberTelegram", "#sharedTelegram") }, quoteMint: $("#pairSelect").value, feeBps: Number($("#emberFee").value), graduateUsd: Number($("#emberGraduate").value), mode: $("#emberMode").value, payout: $("#emberPayout").value, addons: { shield: $("#emberShield").checked, volatilityFee: $("#emberVolatility").checked, airdropPct: $("#emberAirdrop").checked ? 5 : 0 } }) });
   const prepared = await prepare.json(); if (!prepare.ok) throw new Error(prepared.error || "Ember launch preparation failed.");
   const transaction = Transaction.from(base64ToBytes(prepared.transaction));
   const signed = await wallet.signTransaction(transaction);
   const submit = await fetch(`${apiUrl}/v1/launches/submit`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ provider: "ember", launchId: prepared.launchId, signedTransaction: bytesToBase64(signed.serialize()) }) });
   const result = await submit.json(); if (!submit.ok) throw new Error(result.error || "Ember launch submission failed.");
-  return { message: `Ember token live${result.mint ? ` · ${shortAddress(result.mint)}` : ""}.`, url: result.mint || result.pool ? `https://embercurve.fun/t/${result.mint || result.pool}` : undefined };
+  return { message: `Ember token live${result.mint ? ` · ${shortAddress(result.mint)}` : ""}.`, address: result.mint || result.pool || result.mintAddress || result.token || "", url: result.mint || result.pool ? `https://embercurve.fun/t/${result.mint || result.pool}` : undefined };
+}
+
+function openProviderWindow(url) {
+  const providerWindow = window.open(url, "_blank");
+  if (!providerWindow) throw new Error("Your browser blocked the provider tab. Allow pop-ups for Anything and try again.");
+  try { providerWindow.opener = null; } catch {}
+  return providerWindow;
+}
+
+async function launchBags() {
+  if (!imageData) throw new Error("Add a token image first.");
+  const providerWindow = openProviderWindow("about:blank");
+  try {
+    const imageUrl = await uploadTokenImage("Preparing your Bags launch intent…");
+    const url = new URL("https://bags.fm/launch");
+    url.searchParams.set("intent", "true");
+    url.searchParams.set("name", $("#marketName").value.trim());
+    url.searchParams.set("ticker", $("#ticker").value.trim().toUpperCase());
+    if ($("#description").value.trim()) url.searchParams.set("description", $("#description").value.trim());
+    const website = linkValue("#bagsWebsite", "#sharedWebsite");
+    const twitter = linkValue("#bagsX", "#sharedX");
+    if (website) url.searchParams.set("website", website);
+    if (twitter) url.searchParams.set("twitter", twitter);
+    url.searchParams.set("image", imageUrl);
+    url.searchParams.set("initialBuy", String(Math.max(0, Number($("#bagsInitialBuy").value || 0))));
+    url.searchParams.set("feeMode", $("#bagsFeeMode").value);
+    url.searchParams.set("showSocial", "true");
+    providerWindow.location.replace(url.toString());
+    return { external: true, message: "Bags opened with your launch details prefilled. Review and sign on Bags." };
+  } catch (error) {
+    providerWindow.close();
+    throw error;
+  }
+}
+
+function launchProviderHandoff(providerId) {
+  const routes = {
+    clanker: { url: "https://www.clanker.world/deploy", message: "Clanker’s official Base launch page opened. Finish the vault, rewards and liquidity settings there." },
+    arcpad: { url: "https://arcpad.meme/create", message: "ArcPad’s official Arc launch page opened. Verify the early-access network details before signing." },
+    long: { url: "https://long.supply/launch", message: "long.supply opened. Review the stock pair and custodial bridge disclosure before signing." },
+  };
+  const route = routes[providerId];
+  if (!route) throw new Error("Provider handoff is unavailable.");
+  openProviderWindow(route.url);
+  return { external: true, message: route.message };
 }
 
 async function launchCurrentProvider() {
-  return selected.dataset.provider === "stonkfun" ? launchStonk() : selected.dataset.provider === "pumpfun" ? launchPump() : selected.dataset.provider === "pons" ? launchPons() : selected.dataset.provider === "flap" ? launchFlap() : launchEmber();
+  return selected.dataset.provider === "stonkfun" ? launchStonk() : selected.dataset.provider === "pumpfun" ? launchPump() : selected.dataset.provider === "pons" ? launchPons() : selected.dataset.provider === "flap" ? launchFlap() : selected.dataset.provider === "fourmeme" ? launchFourMeme() : selected.dataset.provider === "ember" ? launchEmber() : selected.dataset.provider === "bags" ? launchBags() : launchProviderHandoff(selected.dataset.provider);
 }
 
 async function launchProviderById(id) {
@@ -602,13 +1081,17 @@ $("#launchNow").addEventListener("click", async () => {
       updateQueueStatus(id, "running"); button.textContent = `Approve ${index + 1} of ${activeMultiIds.length}: ${providerButton.dataset.name}`;
       $("#intentMessage").textContent = `Preparing ${providerButton.dataset.name}. Confirm only after checking the wallet network and amount.`;
       try {
-        const result = await launchProviderById(id); multiResults.set(id, { ok: true, result }); successCount++; updateQueueStatus(id, "success", result.message);
+        const result = await launchProviderById(id);
+        multiResults.set(id, { ok: true, result });
+        recordLaunch(id, result, activeMultiIds.length > 1 ? { id: launchAttemptId, index, size: activeMultiIds.length, createdAt: launchAttemptCreatedAt } : null);
+        successCount++;
+        updateQueueStatus(id, "success", result.message);
       } catch (error) {
         const message = readableError(error); multiResults.set(id, { ok: false, message }); failures.push(`${providerButton.dataset.name}: ${message}`); updateQueueStatus(id, "failed", message);
       }
     }
     if (successCount === activeMultiIds.length) {
-      $("#intentMessage").textContent = "All four launches were submitted successfully."; button.textContent = "4 launches submitted"; showToast("All four launches submitted.");
+      $("#intentMessage").textContent = `All ${activeMultiIds.length} launches were submitted successfully.`; button.textContent = `${activeMultiIds.length} launches submitted`; showToast(`All ${activeMultiIds.length} launches submitted.`);
     } else {
       $("#intentMessage").textContent = `${successCount} of ${activeMultiIds.length} succeeded. ${failures.join(" ")}`;
       button.textContent = "Retry failed launches"; button.disabled = false; showToast(`${successCount} of ${activeMultiIds.length} launches succeeded.`);
@@ -618,9 +1101,10 @@ $("#launchNow").addEventListener("click", async () => {
   button.textContent = "Waiting for wallet…"; $("#intentMessage").textContent = "Do not close this window while the provider prepares your transaction.";
   try {
     const result = await launchCurrentProvider();
+    if (!result.external) recordLaunch(selected.dataset.provider, result);
     $("#intentMessage").innerHTML = result.url ? `${result.message} <a href="${result.url}" target="_blank" rel="noopener">View transaction ↗</a>` : result.message;
-    button.textContent = "Launch submitted"; showToast("Launch submitted successfully.");
+    button.textContent = result.external ? "Provider opened" : "Launch submitted"; showToast(result.external ? "Provider launch page opened." : "Launch submitted successfully.");
   } catch (error) { $("#intentMessage").textContent = readableError(error); button.textContent = "Try launch again"; button.disabled = false; }
 });
 
-checkApi(); loadQuote(); loadPairs();
+renderLaunchHistory(); checkApi(); loadQuote(); loadPairs();

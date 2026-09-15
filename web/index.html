@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <title>Anything — One place to launch anything</title>
-  <meta name="description" content="Launch across StonkFun, Pump.fun, Pons, Flap, Ember and Four.meme from one wallet-ready interface.">
+  <meta name="description" content="Explore ten launchpad routes across Solana, Robinhood Chain, BNB Chain, Base and Arc from one wallet-ready interface.">
   <link rel="icon" type="image/webp" href="/anything-logo.webp?v=20260914-logo">
   <link rel="apple-touch-icon" href="/anything-logo.webp?v=20260914-logo">
   <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -25,7 +25,7 @@
 
   <main id="launch">
     <section class="intro">
-      <div><p class="kicker">Six launchpads. One workspace.</p><h1>Choose a rail.<br><span>Launch from here.</span></h1></div>
+      <div><p class="kicker">Ten launchpads. One workspace.</p><h1>Choose a rail.<br><span>Launch from here.</span></h1></div>
       <p class="intro-copy">Launch once or prepare the same token for every rail you select. Provider fees stay with each launchpad; Anything takes no cut.</p>
     </section>
 
@@ -62,23 +62,35 @@
     </section>
 
     <section class="rail-picker" aria-label="Launchpad selector">
-      <button class="provider active" data-provider="stonkfun" data-name="StonkFun" data-chain="Solana" data-fee="100" data-tone="Market rail">
+      <button type="button" class="provider active" data-provider="stonkfun" data-name="StonkFun" data-chain="Solana" data-fee="100" data-tone="Market rail">
         <span class="provider-logo stonk-logo"><img src="https://www.stonkfun.xyz/stonk-mark.svg" alt=""></span><span><b>StonkFun</b><small>Stocks + rewards</small></span><i>01</i>
       </button>
-      <button class="provider" data-provider="pumpfun" data-name="Pump.fun" data-chain="Solana" data-fee="100" data-tone="Meme rail">
+      <button type="button" class="provider" data-provider="pumpfun" data-name="Pump.fun" data-chain="Solana" data-fee="100" data-tone="Meme rail">
         <span class="provider-logo pump-logo"><img src="https://pump.fun/pump-logomark.svg" alt=""></span><span><b>Pump.fun</b><small>Memes + culture</small></span><i>02</i>
       </button>
-      <button class="provider" data-provider="pons" data-name="Pons" data-chain="Robinhood Chain" data-fee="125" data-tone="Creator rail">
+      <button type="button" class="provider" data-provider="pons" data-name="Pons" data-chain="Robinhood Chain" data-fee="125" data-tone="Creator rail">
         <span class="provider-logo pons-logo"><img src="https://www.ponsfamily.com/pons.png" alt=""></span><span><b>Pons</b><small>Creator markets</small></span><i>03</i>
       </button>
-      <button class="provider" data-provider="flap" data-name="Flap" data-chain="BNB Chain" data-fee="0" data-tone="Programmable rail">
+      <button type="button" class="provider" data-provider="flap" data-name="Flap" data-chain="BNB Chain" data-fee="0" data-tone="Programmable rail">
         <span class="provider-logo flap-logo"><img src="https://flap.sh/icon.svg" alt=""></span><span><b>Flap</b><small>BNB + tax tokens</small></span><i>04</i>
       </button>
-      <button class="provider" data-provider="ember" data-name="Ember" data-chain="Solana" data-fee="200" data-tone="Fee rail">
+      <button type="button" class="provider" data-provider="ember" data-name="Ember" data-chain="Solana" data-fee="200" data-tone="Fee rail">
         <span class="provider-logo ember-logo"><img src="https://embercurve.fun/apple-touch-icon.png" alt=""></span><span><b>Ember</b><small>Stocks + fee modules</small></span><i>05</i>
       </button>
-      <button class="provider" data-provider="fourmeme" data-name="Four.meme" data-chain="BNB Chain" data-fee="0" data-tone="Meme rail">
+      <button type="button" class="provider" data-provider="fourmeme" data-name="Four.meme" data-chain="BNB Chain" data-fee="0" data-tone="Meme rail">
         <span class="provider-logo fourmeme-logo"><img src="https://four.meme/apple-touch-icon.png" alt=""></span><span><b>Four.meme</b><small>BNB meme markets</small></span><i>06</i>
+      </button>
+      <button type="button" class="provider" data-provider="bags" data-name="Bags" data-chain="Solana" data-fee="0" data-tone="Fee-share rail" data-handoff="true">
+        <span class="provider-logo bags-logo" data-mark="B"><img src="https://bags.fm/favicon.ico" alt="" onerror="this.remove()"></span><span><b>Bags</b><small>Fees + social splits</small></span><i>07</i>
+      </button>
+      <button type="button" class="provider" data-provider="clanker" data-name="Clanker" data-chain="Base" data-fee="0" data-tone="Base rail" data-handoff="true">
+        <span class="provider-logo clanker-logo" data-mark="C"><img src="https://www.clanker.world/favicon.ico" alt="" onerror="this.remove()"></span><span><b>Clanker</b><small>Uniswap markets</small></span><i>08</i>
+      </button>
+      <button type="button" class="provider" data-provider="arcpad" data-name="ArcPad" data-chain="Arc" data-fee="0" data-tone="Arc early access" data-handoff="true">
+        <span class="provider-logo arcpad-logo" data-mark="A"><img src="https://arcpad.meme/favicon.ico" alt="" onerror="this.remove()"></span><span><b>ArcPad</b><small>Arc + USDC</small></span><i>09</i>
+      </button>
+      <button type="button" class="provider" data-provider="long" data-name="long.supply" data-chain="Arc" data-fee="0" data-tone="Arc stock rail" data-handoff="true">
+        <span class="provider-logo long-logo" data-mark="L"><img src="https://long.supply/favicon.ico" alt="" onerror="this.remove()"></span><span><b>long.supply</b><small>Stock-paired launches</small></span><i>10</i>
       </button>
     </section>
 
@@ -97,6 +109,10 @@
           <div class="flap-art"><span><img src="https://flap.sh/ui20/nav-logo.svg" alt=""></span><i>/// PROGRAMMABLE</i><b>CREATE TOKEN →</b></div>
           <div class="ember-art"><span><img src="https://embercurve.fun/apple-touch-icon.png" alt=""></span><i></i><i></i><i></i><b>fees go somewhere.</b></div>
           <div class="fourmeme-art"><span><img src="https://four.meme/apple-touch-icon.png" alt=""></span><i>FOUR.MEME</i><b>BNB MEME / LAUNCH</b></div>
+          <div class="bags-art"><span>B</span><i>BAGS</i><b>SHARE THE FEES</b></div>
+          <div class="clanker-art"><span>C</span><i>CLANKER</i><b>BASE / UNISWAP</b></div>
+          <div class="arcpad-art"><span>A</span><i>ARCPAD</i><b>ARC / USDC</b></div>
+          <div class="long-art"><span>L</span><i>LONG.SUPPLY</i><b>STOCKS ON ARC</b></div>
         </div>
       </header>
 
@@ -131,11 +147,15 @@
           <div id="flapOptions" class="provider-options flap-options" hidden><div class="option-title"><b>Flap Tax Token V3</b><small>Recommended Portal V6 route</small></div><div class="field-grid"><label>Initial buy in pair token<input id="flapInitialBuy" type="number" min="0" step="0.000001" value="0"></label><label>Tax duration<select id="flapTaxDuration"><option value="2592000">30 days</option><option value="7776000">90 days</option><option value="31536000" selected>1 year</option></select></label></div><div class="field-grid"><label>Buy tax %<input id="flapBuyTax" type="number" min="0" max="25" step="0.1" value="3"></label><label>Sell tax %<input id="flapSellTax" type="number" min="0" max="25" step="0.1" value="10"></label></div><div class="field-grid"><label>Anti-farmer<select id="flapAntiFarmer"><option value="0">Off</option><option value="3600">1 hour</option><option value="86400">1 day</option><option value="259200" selected>3 days</option></select></label><label class="switch-row">Earn protocol commission<input id="flapCommission" type="checkbox"></label></div><div class="allocation-grid"><label>Beneficiary %<input id="flapMarketing" type="number" min="0" max="100" value="100"></label><label>Burn %<input id="flapBurn" type="number" min="0" max="100" value="0"></label><label>Dividends %<input id="flapDividend" type="number" min="0" max="100" value="0"></label><label>LP %<input id="flapLp" type="number" min="0" max="100" value="0"></label></div><label>Dividend payout<select id="flapDividendToken"><option value="quote">Pair / native token</option><option value="self">Launched token</option></select></label><details><summary>Project links</summary><div class="details-grid"><div class="field-grid"><label>Website<input id="flapWebsite" type="url" placeholder="https://..."></label><label>X profile<input id="flapX" type="url" placeholder="https://x.com/..."></label></div><label>Telegram<input id="flapTelegram" type="url" placeholder="https://t.me/..."></label></div></details><p>Tax allocation must total 100%. Your selected wallet is the beneficiary and optional commission receiver.</p></div>
           <div id="emberOptions" class="provider-options ember-options" hidden><div class="option-title"><b>Ember curve options</b><small>1B fixed supply</small></div><div class="field-grid"><label>Trade tax<select id="emberFee"><option value="100">1%</option><option value="200" selected>2%</option><option value="300">3%</option></select></label><label>Graduation<select id="emberGraduate"><option value="25000">$25,000</option><option value="35000" selected>$35,000</option><option value="40000">$40,000</option></select></label></div><div class="field-grid"><label>Fee destination<select id="emberMode"><option value="holders">Holder rewards</option><option value="diamond">Diamond Hands</option><option value="vault">Milestone Vault</option><option value="perp">Conviction</option><option value="booster">EMBER Booster</option><option value="sister">Sister coin</option><option value="lotto">SuperLotto</option><option value="dip">Dip Defender</option><option value="bounty">Top Buyer Bounty</option><option value="lp">LP Farm</option><option value="burn">Buyback & burn</option><option value="split">Split wallets</option><option value="keep">Keep it</option></select></label><label>Payout currency<select id="emberPayout"><option value="quote">Selected pair</option><option value="sol">SOL</option><option value="ember">EMBER</option></select></label></div><div class="addon-grid"><label><input id="emberShield" type="checkbox"> Sniper Shield</label><label><input id="emberVolatility" type="checkbox"> Volatility Dividend</label><label><input id="emberAirdrop" type="checkbox"> Graduation Airdrop</label></div><details><summary>Project links</summary><div class="details-grid"><div class="field-grid"><label>Website<input id="emberWebsite" type="url" placeholder="https://..."></label><label>X profile<input id="emberX" type="url" placeholder="https://x.com/..."></label></div><label>Telegram<input id="emberTelegram" type="url" placeholder="https://t.me/..."></label></div></details><p>Module availability is validated by Ember against the selected pair and economics at prepare time.</p></div>
           <div id="fourMemeOptions" class="provider-options fourmeme-options" hidden><div class="option-title"><b>Four.meme options</b><small>OpenFour · BNB Chain</small></div><div class="field-grid"><label>Category<select id="fourMemeLabel"><option>Meme</option><option>AI</option><option>Defi</option><option>Games</option><option>Infra</option><option>De-Sci</option><option>Social</option><option>Depin</option><option>Charity</option><option>Others</option></select></label><label>Presale buy in BNB<input id="fourMemePresale" type="number" min="0" step="0.000001" value="0"></label></div><details><summary>Project links</summary><div class="details-grid"><div class="field-grid"><label>Website<input id="fourMemeWebsite" type="url" placeholder="https://..."></label><label>X profile<input id="fourMemeX" type="url" placeholder="https://x.com/..."></label></div><label>Telegram<input id="fourMemeTelegram" type="url" placeholder="https://t.me/..."></label></div></details><p>Your BNB wallet signs the current OpenFour launch request. Anything never receives or stores a private key.</p></div>
+          <div id="bagsOptions" class="provider-options bags-options" hidden><div class="option-title"><b>Bags launch intent</b><small>Official prefilled flow</small></div><div class="field-grid"><label>Initial buy in USD<input id="bagsInitialBuy" type="number" min="0" step="0.01" value="0"></label><label>Fee mode<select id="bagsFeeMode"><option value="DEFAULT">Founder mode · 1%</option><option value="BPS100PRE_BPS25POST_5000_COMPOUNDING">Low-fee mode</option><option value="BPS1000PRE_BPS1000POST">Paper Hand Tax</option></select></label></div><details><summary>Project links</summary><div class="details-grid"><label>Website<input id="bagsWebsite" type="url" placeholder="https://..."></label><label>X profile<input id="bagsX" type="url" placeholder="https://x.com/..."></label></div></details><p>Anything securely prepares your artwork and token details, then opens Bags’ official launch screen with the form filled in. Review and sign there.</p></div>
+          <div id="clankerOptions" class="provider-options clanker-options" hidden><div class="option-title"><b>Clanker launch</b><small>Verified provider handoff</small></div><p>Your token details stay in this tab. Continue to Clanker’s official Base launch screen to choose vault, rewards, starting market cap and final Uniswap settings.</p></div>
+          <div id="arcpadOptions" class="provider-options arcpad-options" hidden><div class="option-title"><b>ArcPad launch</b><small>Arc early access</small></div><p>ArcPad launches directly to Uniswap V3 with USDC-denominated network fees. Arc’s official network status is still early access, so verify the network and RPC shown by your wallet before signing.</p></div>
+          <div id="longOptions" class="provider-options long-options" hidden><div class="option-title"><b>long.supply launch</b><small>Arc stock-paired market</small></div><p>Continue to long.supply to select an available bridged stock token and review its custodial bridge disclosure before launching on Arc.</p></div>
           <button class="primary" type="submit"><span id="reviewButtonText">Review launch</span><b>→</b></button>
         </form>
 
         <aside>
-          <article class="side-card route-card"><div class="side-title"><span>Live route</span><i>READY</i></div><div class="route-lockup"><span class="mini-logo"><img id="sideLogo" src="https://www.stonkfun.xyz/stonk-mark.svg" alt="StonkFun logo"></span><div><b id="routeName">StonkFun</b><small id="settlement">Solana settlement</small></div></div><ol><li><span>1</span><div><b>Build here</b><small>Enter token and pair settings</small></div></li><li><span>2</span><div><b>Review once</b><small>See route, network and fees</small></div></li><li><span>3</span><div><b>Sign in wallet</b><small>Provider receives the transaction</small></div></li></ol></article>
+          <article class="side-card route-card"><div class="side-title"><span>Live route</span><i id="routeStatus">READY</i></div><div class="route-lockup"><span class="mini-logo"><img id="sideLogo" src="https://www.stonkfun.xyz/stonk-mark.svg" alt="StonkFun logo"></span><div><b id="routeName">StonkFun</b><small id="settlement">Solana settlement</small></div></div><ol><li><span>1</span><div><b>Build here</b><small>Enter token and pair settings</small></div></li><li><span>2</span><div><b>Review once</b><small>See route, network and fees</small></div></li><li><span>3</span><div><b>Sign in wallet</b><small>Provider receives the transaction</small></div></li></ol></article>
           <article class="side-card fee-card"><div class="side-title"><span>Provider costs</span><small>Before signing</small></div><div class="fee"><p><span id="providerFeeLabel">Default trade fee</span><b id="providerFee">1.00%</b></p><p><span>Anything cut</span><b id="platformFee">0.00%</b></p><p class="total"><span id="totalFeeLabel">Launch charge</span><b id="totalFee">Live quote</b></p></div><small class="disclosure" id="feeDisclosure">Provider charges and network gas still apply. Anything takes no cut.</small></article>
           <article class="side-card trust-card" id="routeGuide"><div><span class="trust-dot"></span><b>Launch it yourself</b></div><p>Anything never receives your launch proceeds. Check the network, amount and recipient before submitting.</p></article>
         </aside>
@@ -147,7 +167,7 @@
       <div class="launched-grid" id="launchedGrid"><div class="launched-empty"><b>No launches saved yet.</b><span>Your successful launches will appear here automatically.</span></div></div>
     </section>
 
-    <section class="rail-summary"><p>Connected rails</p><div><span>StonkFun</span><span>Pump.fun</span><span>Pons</span><span>Flap</span><span>Ember</span><span>Four.meme</span></div><b>6 providers · 3 networks · 1 workspace</b></section>
+    <section class="rail-summary"><p>Connected rails</p><div><span>StonkFun</span><span>Pump.fun</span><span>Pons</span><span>Flap</span><span>Ember</span><span>Four.meme</span><span>Bags</span><span>Clanker</span><span>ArcPad</span><span>long.supply</span></div><b>10 providers · 5 networks · 1 workspace</b></section>
   </main>
 
   <div class="drawer" id="drawer" aria-hidden="true"><button class="backdrop" id="backdrop" aria-label="Close review"></button><section><div class="drawer-title"><div><p class="kicker">Final check</p><h2 id="reviewTitle">Review launch</h2></div><button id="closeDrawer" aria-label="Close">×</button></div><div class="token-summary"><span class="summary-provider-logo"><img id="summaryLogo" src="https://www.stonkfun.xyz/stonk-mark.svg" alt="StonkFun logo"></span><span><b id="summaryName">Untitled market</b><small><span id="summaryTicker">$TICKER</span> · <span id="summaryProvider">StonkFun</span></small></span></div><div class="fee summary" id="singleSummary"><p><span>Route</span><b id="summaryRoute">StonkFun</b></p><p><span>Network</span><b id="summaryNetwork">Solana</b></p><p><span>Launch amount</span><b id="summaryBuy">0</b></p><p class="total"><span>Provider cost</span><b id="summaryFee">Live quote</b></p></div><div class="launch-queue" id="launchQueue" hidden></div><div class="risk-note" id="riskNote">This creates an on-chain asset. Verify every amount and address in your wallet before signing; transactions cannot be reversed.</div><div class="drawer-bottom"><p id="intentMessage">Your wallet will show the final transaction.</p><button class="primary" id="launchNow">Connect & launch on StonkFun</button></div></section></div>
@@ -161,6 +181,6 @@
     </section>
   </div>
   <div class="toast" id="toast" role="status"></div>
-  <script type="module" src="/AnythingLaunchDemo.js?v=20260915-launch-demo"></script><script src="/config.js"></script><script type="module" src="/app.js?v=20260916-grouped-launches"></script>
+  <script type="module" src="/AnythingLaunchDemo.js?v=20260915-launch-demo"></script><script src="/config.js"></script><script type="module" src="/app.js?v=20260916-more-rails"></script>
 </body>
 </html>

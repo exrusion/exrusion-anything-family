@@ -99,6 +99,46 @@ const providers = {
     feeDisplay: "Four.meme launch fee plus BNB network gas",
     execution: "wallet_signed",
   },
+  bags: {
+    id: "bags",
+    name: "Bags",
+    network: "Solana",
+    categories: ["memes", "fee-sharing", "social-splits"],
+    providerFeeBps: null,
+    feeType: "selected_fee_mode",
+    feeDisplay: "Fee mode and final costs shown on the official Bags launch screen",
+    execution: "provider_handoff",
+  },
+  clanker: {
+    id: "clanker",
+    name: "Clanker",
+    network: "Base",
+    categories: ["memes", "uniswap", "creator-rewards"],
+    providerFeeBps: null,
+    feeType: "provider_quote",
+    feeDisplay: "Deployment and network costs shown by Clanker",
+    execution: "provider_handoff",
+  },
+  arcpad: {
+    id: "arcpad",
+    name: "ArcPad",
+    network: "Arc",
+    categories: ["memes", "uniswap-v3", "creator-rewards"],
+    providerFeeBps: 100,
+    feeType: "buy_fee",
+    feeDisplay: "1% buy fee and 0% sell fee stated by ArcPad; Arc remains early access",
+    execution: "provider_handoff",
+  },
+  long: {
+    id: "long",
+    name: "long.supply",
+    network: "Arc",
+    categories: ["stocks", "paired-markets", "custodial-bridge"],
+    providerFeeBps: null,
+    feeType: "provider_quote",
+    feeDisplay: "Launch and bridge costs shown by long.supply",
+    execution: "provider_handoff",
+  },
 };
 
 const launchIntents = new Map();
@@ -353,6 +393,10 @@ const server = http.createServer(async (req, res) => {
         return json(res, 200, { pairs: bnb?.quoteTokens || [] }, origin);
       }
       if (provider === "fourmeme") return json(res, 200, { pairs: [{ symbol: "BNB", name: "BNB", address: "0x0000000000000000000000000000000000000000", decimals: 18 }] }, origin);
+      if (provider === "bags") return json(res, 200, { pairs: [{ symbol: "SOL", name: "Solana", address: "So11111111111111111111111111111111111111112", decimals: 9 }] }, origin);
+      if (provider === "clanker") return json(res, 200, { pairs: [{ symbol: "WETH", name: "Wrapped Ether", address: "0x4200000000000000000000000000000000000006", decimals: 18 }] }, origin);
+      if (provider === "arcpad") return json(res, 200, { pairs: [{ symbol: "USDC", name: "Arc native gas and launch pair", address: "native", decimals: 18 }] }, origin);
+      if (provider === "long") return json(res, 200, { pairs: [{ symbol: "STOCK", name: "Choose a live stock pair on long.supply", address: "provider", decimals: 18 }] }, origin);
       return json(res, 400, { error: "provider_not_configured" }, origin);
     } catch (error) {
       return json(res, error.status || 502, error.body || { error: error.message || "provider_unavailable" }, origin);

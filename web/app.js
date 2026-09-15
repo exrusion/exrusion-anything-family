@@ -88,6 +88,34 @@ const providerContent = {
     hint: "BNB meme launch",
     logo: "https://four.meme/apple-touch-icon.png",
   },
+  bags: {
+    headline: "Share the fees. Keep the launch simple.",
+    description: "Prepare a Bags launch with token details, artwork, social links and the official fee mode already filled in.",
+    mechanic: "Official launch intent",
+    hint: "Prefilled provider handoff",
+    logo: "https://bags.fm/favicon.ico",
+  },
+  clanker: {
+    headline: "Launch straight into a Base market.",
+    description: "Continue to Clanker for a permissionless token deployment with Uniswap liquidity, vault and reward controls.",
+    mechanic: "Verified provider handoff",
+    hint: "Base launch route",
+    logo: "https://www.clanker.world/favicon.ico",
+  },
+  arcpad: {
+    headline: "Launch into Arc with USDC.",
+    description: "Open ArcPad’s early-access Arc flow for a direct Uniswap V3 market and creator rewards paid in USDC.",
+    mechanic: "Arc early access",
+    hint: "Verify Arc network details",
+    logo: "https://arcpad.meme/favicon.ico",
+  },
+  long: {
+    headline: "Pair a community coin with stocks on Arc.",
+    description: "Continue to long.supply to choose an available bridged stock token and review the provider’s custody model.",
+    mechanic: "Arc stock handoff",
+    hint: "Custodial stock-pair route",
+    logo: "https://long.supply/favicon.ico",
+  },
 };
 
 const providerCosts = {
@@ -97,6 +125,10 @@ const providerCosts = {
   flap: { label: "Selected token tax", value: "3% buy / 10% sell", totalLabel: "Launch cost", total: "Initial buy + gas", disclosure: "Flap’s selected token taxes and BNB network costs apply. Anything takes no cut." },
   ember: { label: "Selected trade tax", value: "2.00%", totalLabel: "Launch charge", total: "Provider quote", disclosure: "Ember applies its selected trade-tax split and network costs. Anything takes no cut." },
   fourmeme: { label: "Launchpad fee", value: "Live contract fee", totalLabel: "Launch cost", total: "Provider fee + gas", disclosure: "Four.meme receives its launch and trading fees. BNB network gas applies; Anything takes no cut." },
+  bags: { label: "Selected fee mode", value: "1.00% founder mode", totalLabel: "Anything cut", total: "0.00%", disclosure: "Bags shows the final launch and trading costs before signing. Anything takes no cut." },
+  clanker: { label: "Launchpad fee", value: "Shown by Clanker", totalLabel: "Anything cut", total: "0.00%", disclosure: "Clanker shows the final Base deployment and network costs. Anything takes no cut." },
+  arcpad: { label: "Trading fee", value: "1.00% buy / 0% sell", totalLabel: "Anything cut", total: "0.00%", disclosure: "ArcPad states that creators receive 0.5% of buys. Arc is early access; verify every wallet prompt." },
+  long: { label: "Launchpad fee", value: "Shown by long.supply", totalLabel: "Anything cut", total: "0.00%", disclosure: "long.supply uses a custodial bridge for stock pairs. Review its disclosure and final costs before signing." },
 };
 
 const PONS_FACTORY = "0x7eD598BcEf8bd9Edd8C97A195C6d13f40801EC7e";
@@ -361,7 +393,7 @@ async function normalizeTokenImage(file) {
 }
 
 function currentMultiIds() { return [...document.querySelectorAll('.multi-options input:checked')].map((input) => input.value); }
-function walletRouteForProvider(providerId) { return ["stonkfun", "pumpfun", "ember"].includes(providerId) ? "solana" : providerId === "fourmeme" ? "flap" : providerId; }
+function walletRouteForProvider(providerId) { return ["stonkfun", "pumpfun", "ember", "bags"].includes(providerId) ? "solana" : providerId === "fourmeme" ? "flap" : ["clanker", "arcpad", "long"].includes(providerId) ? "external" : providerId; }
 function providerForWalletRoute(route) { return route === "solana" ? "pumpfun" : route; }
 function selectedWalletRoutes(ids = currentMultiIds()) { return [...new Set(ids.map(walletRouteForProvider))]; }
 function linkValue(providerSelector, sharedSelector) {
@@ -492,6 +524,10 @@ function activateConnection(route) {
 
 function updateWalletUi() {
   const routes = launchMode === "multi" ? selectedWalletRoutes() : [walletRouteForProvider(selected.dataset.provider)];
+  if (launchMode === "single" && routes[0] === "external") {
+    document.querySelectorAll("[data-wallet]").forEach((button) => { button.textContent = "Wallet at provider"; });
+    return;
+  }
   const connected = routes.filter((route) => walletConnections[route]).length;
   document.querySelectorAll("[data-wallet]").forEach((button) => {
     if (launchMode === "multi" && routes.length > 1) button.textContent = connected ? `${connected}/${routes.length} wallets` : "Connect wallets";
@@ -508,6 +544,7 @@ function updateWalletUi() {
 
 async function connectWallet(providerId = selected.dataset.provider) {
   const route = walletRouteForProvider(providerId);
+  if (route === "external") throw new Error("This route connects your wallet on the provider’s verified launch page.");
   if (route === "solana") {
     const wallet = await chooseWallet({ kind: "solana", preferredKey: "phantom", network: "Solana" });
     const result = await wallet.provider.connect();
@@ -564,6 +601,11 @@ async function selectProvider(button) {
   $("#flapOptions").hidden = button.dataset.provider !== "flap";
   $("#emberOptions").hidden = button.dataset.provider !== "ember";
   $("#fourMemeOptions").hidden = button.dataset.provider !== "fourmeme";
+  $("#bagsOptions").hidden = button.dataset.provider !== "bags";
+  $("#clankerOptions").hidden = button.dataset.provider !== "clanker";
+  $("#arcpadOptions").hidden = button.dataset.provider !== "arcpad";
+  $("#longOptions").hidden = button.dataset.provider !== "long";
+  $("#routeStatus").textContent = button.dataset.handoff === "true" ? "HANDOFF" : "READY";
   await Promise.all([loadQuote(), loadPairs()]);
   restoreProviderDraft(providerId);
   updateWalletUi();
@@ -609,9 +651,9 @@ async function checkApi() {
     const [healthResponse, providersResponse] = await Promise.all([fetch(`${apiUrl}/health`), fetch(`${apiUrl}/v1/providers`)]);
     if (!healthResponse.ok || !providersResponse.ok) throw new Error();
     const providerState = await providersResponse.json();
-    const ready = Array.isArray(providerState.data) && providerState.data.length >= 6 && providerState.data.every((provider) => provider.execution !== "configuration_required");
+    const ready = Array.isArray(providerState.data) && providerState.data.length >= 10 && providerState.data.every((provider) => provider.execution !== "configuration_required");
     if (!ready) throw new Error();
-    $("#apiStatus").textContent = "6 launch routes online";
+    $("#apiStatus").textContent = "10 launch routes online";
     $("#apiStatus").parentElement.classList.add("online");
   }
   catch { $("#apiStatus").textContent = "Interface mode"; }
@@ -625,7 +667,7 @@ function setLaunchMode(mode) {
   $("#multiSharedIntro").hidden = mode !== "multi";
   $("#multiSharedDetails").hidden = mode !== "multi";
   $("#tokenDetailsTitle").textContent = mode === "multi" ? "Shared token details" : "Token details";
-  $("#formHint").textContent = mode === "multi" ? "One form · up to six launches" : providerContent[selected.dataset.provider].hint;
+  $("#formHint").textContent = mode === "multi" ? "One form · up to six direct launches" : providerContent[selected.dataset.provider].hint;
   $("#sharedX").required = false;
   $("#sharedXLabel").textContent = "X / Twitter";
   $("#reviewButtonText").textContent = mode === "multi" ? "Review selected launches" : "Review launch";
@@ -649,7 +691,8 @@ function updateMultiSelection() {
   $("#sharedX").placeholder = pumpSelected ? "https://x.com/.../status/..." : "https://x.com/...";
   $("#multiStatus").textContent = ready ? `${checked.length} launchpad${checked.length === 1 ? "" : "s"} selected · ready to launch` : "0 launchpads selected";
   $("#multiStatus").classList.toggle("ready", ready);
-  $("#selectAllRails").textContent = checked.length === providers.length ? "Clear selection" : `Select all ${providers.length}`;
+  const available = document.querySelectorAll(".multi-options input").length;
+  $("#selectAllRails").textContent = checked.length === available ? "Clear selection" : `Select all ${available}`;
   updateMultiWalletRouting(checked);
 }
 
@@ -776,11 +819,11 @@ $("#launchForm").addEventListener("submit", (event) => {
     $("#reviewTitle").textContent = "Review launch";
     $("#summaryLogo").src = providerContent[selected.dataset.provider].logo; $("#summaryLogo").alt = `${selected.dataset.name} logo`;
     $("#summaryProvider").textContent = selected.dataset.name; $("#summaryRoute").textContent = selected.dataset.name; $("#summaryNetwork").textContent = selected.dataset.chain;
-    const launchAmount = selected.dataset.provider === "stonkfun" ? $("#stonkDevBuy").value : selected.dataset.provider === "pons" ? $("#ponsDevBuy").value : selected.dataset.provider === "flap" ? $("#flapInitialBuy").value : selected.dataset.provider === "fourmeme" ? $("#fourMemePresale").value : "0";
+    const launchAmount = selected.dataset.provider === "stonkfun" ? $("#stonkDevBuy").value : selected.dataset.provider === "pons" ? $("#ponsDevBuy").value : selected.dataset.provider === "flap" ? $("#flapInitialBuy").value : selected.dataset.provider === "fourmeme" ? $("#fourMemePresale").value : selected.dataset.provider === "bags" ? `${$("#bagsInitialBuy").value || 0} USD` : "0";
     $("#summaryBuy").textContent = launchAmount || "0"; $("#summaryFee").textContent = `${$("#providerFee").textContent} · Anything 0%`;
     $("#singleSummary").hidden = false; $("#launchQueue").hidden = true;
     $("#riskNote").textContent = "This creates an on-chain asset. Verify every amount and address in your wallet before signing; transactions cannot be reversed.";
-    $("#launchNow").textContent = `Connect & launch on ${selected.dataset.name}`; $("#intentMessage").textContent = "Your wallet will show the final network transaction before anything is submitted.";
+    $("#launchNow").textContent = selected.dataset.handoff === "true" ? `Continue to ${selected.dataset.name}` : `Connect & launch on ${selected.dataset.name}`; $("#intentMessage").textContent = selected.dataset.handoff === "true" ? "You will finish and sign on the provider’s verified launch page." : "Your wallet will show the final network transaction before anything is submitted.";
   }
   $("#drawer").classList.add("open"); $("#drawer").setAttribute("aria-hidden", "false");
 });
@@ -971,8 +1014,53 @@ async function launchEmber() {
   return { message: `Ember token live${result.mint ? ` · ${shortAddress(result.mint)}` : ""}.`, address: result.mint || result.pool || result.mintAddress || result.token || "", url: result.mint || result.pool ? `https://embercurve.fun/t/${result.mint || result.pool}` : undefined };
 }
 
+function openProviderWindow(url) {
+  const providerWindow = window.open(url, "_blank");
+  if (!providerWindow) throw new Error("Your browser blocked the provider tab. Allow pop-ups for Anything and try again.");
+  try { providerWindow.opener = null; } catch {}
+  return providerWindow;
+}
+
+async function launchBags() {
+  if (!imageData) throw new Error("Add a token image first.");
+  const providerWindow = openProviderWindow("about:blank");
+  try {
+    const imageUrl = await uploadTokenImage("Preparing your Bags launch intent…");
+    const url = new URL("https://bags.fm/launch");
+    url.searchParams.set("intent", "true");
+    url.searchParams.set("name", $("#marketName").value.trim());
+    url.searchParams.set("ticker", $("#ticker").value.trim().toUpperCase());
+    if ($("#description").value.trim()) url.searchParams.set("description", $("#description").value.trim());
+    const website = linkValue("#bagsWebsite", "#sharedWebsite");
+    const twitter = linkValue("#bagsX", "#sharedX");
+    if (website) url.searchParams.set("website", website);
+    if (twitter) url.searchParams.set("twitter", twitter);
+    url.searchParams.set("image", imageUrl);
+    url.searchParams.set("initialBuy", String(Math.max(0, Number($("#bagsInitialBuy").value || 0))));
+    url.searchParams.set("feeMode", $("#bagsFeeMode").value);
+    url.searchParams.set("showSocial", "true");
+    providerWindow.location.replace(url.toString());
+    return { external: true, message: "Bags opened with your launch details prefilled. Review and sign on Bags." };
+  } catch (error) {
+    providerWindow.close();
+    throw error;
+  }
+}
+
+function launchProviderHandoff(providerId) {
+  const routes = {
+    clanker: { url: "https://www.clanker.world/deploy", message: "Clanker’s official Base launch page opened. Finish the vault, rewards and liquidity settings there." },
+    arcpad: { url: "https://arcpad.meme/create", message: "ArcPad’s official Arc launch page opened. Verify the early-access network details before signing." },
+    long: { url: "https://long.supply/launch", message: "long.supply opened. Review the stock pair and custodial bridge disclosure before signing." },
+  };
+  const route = routes[providerId];
+  if (!route) throw new Error("Provider handoff is unavailable.");
+  openProviderWindow(route.url);
+  return { external: true, message: route.message };
+}
+
 async function launchCurrentProvider() {
-  return selected.dataset.provider === "stonkfun" ? launchStonk() : selected.dataset.provider === "pumpfun" ? launchPump() : selected.dataset.provider === "pons" ? launchPons() : selected.dataset.provider === "flap" ? launchFlap() : selected.dataset.provider === "fourmeme" ? launchFourMeme() : launchEmber();
+  return selected.dataset.provider === "stonkfun" ? launchStonk() : selected.dataset.provider === "pumpfun" ? launchPump() : selected.dataset.provider === "pons" ? launchPons() : selected.dataset.provider === "flap" ? launchFlap() : selected.dataset.provider === "fourmeme" ? launchFourMeme() : selected.dataset.provider === "ember" ? launchEmber() : selected.dataset.provider === "bags" ? launchBags() : launchProviderHandoff(selected.dataset.provider);
 }
 
 async function launchProviderById(id) {
@@ -1013,9 +1101,9 @@ $("#launchNow").addEventListener("click", async () => {
   button.textContent = "Waiting for wallet…"; $("#intentMessage").textContent = "Do not close this window while the provider prepares your transaction.";
   try {
     const result = await launchCurrentProvider();
-    recordLaunch(selected.dataset.provider, result);
+    if (!result.external) recordLaunch(selected.dataset.provider, result);
     $("#intentMessage").innerHTML = result.url ? `${result.message} <a href="${result.url}" target="_blank" rel="noopener">View transaction ↗</a>` : result.message;
-    button.textContent = "Launch submitted"; showToast("Launch submitted successfully.");
+    button.textContent = result.external ? "Provider opened" : "Launch submitted"; showToast(result.external ? "Provider launch page opened." : "Launch submitted successfully.");
   } catch (error) { $("#intentMessage").textContent = readableError(error); button.textContent = "Try launch again"; button.disabled = false; }
 });
 
