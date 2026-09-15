@@ -102,6 +102,10 @@ body[data-theme="fourmeme"] .primary{background:#f5d84b;color:#1a170d}
 /* Keep the spacious header open and borderless. */
 .topbar{border-bottom:0}
 
+/* Official social link in the existing header. */
+.social-x{display:inline-flex;align-items:center;justify-content:center;gap:8px;min-height:42px;padding:0 14px;border:1px solid #dedfe1;border-radius:12px;background:#fff;color:#111;text-decoration:none;font-size:12px;font-weight:750;white-space:nowrap;transition:transform .16s ease,border-color .16s ease,box-shadow .16s ease}.social-x span{font:700 15px/1 var(--display)}.social-x:hover{transform:translateY(-1px);border-color:#111;box-shadow:0 4px 12px #0000000d}.social-x:focus-visible{outline:3px solid #69b8d844;outline-offset:2px}
+@media(max-width:720px){.social-x{margin-left:auto;width:42px;height:42px;min-height:42px;padding:0;flex:0 0 42px}.social-x b{display:none}.wallet{margin-left:0}}
+
 /* Docs continue the same spacious editorial system. */
 .docs-back-link{border:1px solid #1b1b1c;background:#111;color:#fff;border-radius:12px;padding:11px 17px;font-weight:750;text-decoration:none;box-shadow:0 4px 12px #00000013}
 .docs-back-link:hover{transform:translateY(-1px)}
