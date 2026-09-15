@@ -102,15 +102,14 @@ body[data-theme="fourmeme"] .primary{background:#f5d84b;color:#1a170d}
 /* Keep the spacious header open and borderless. */
 .topbar{border-bottom:0}
 
-/* The open side of the hero is reserved for the 3D Anything mark. */
-.intro-visual{width:min(410px,36vw);min-height:230px;display:grid;place-items:center;perspective:900px}
-.intro-mark-3d{display:block;width:190px;height:190px;object-fit:contain;transform-style:preserve-3d;filter:drop-shadow(0 30px 34px #173c3428);animation:anything-float 6s ease-in-out infinite}
-@keyframes anything-float{0%,100%{transform:translateY(0) rotateX(2deg) rotateY(-5deg)}50%{transform:translateY(-12px) rotateX(-3deg) rotateY(6deg)}}
-@media(prefers-reduced-motion:reduce){.intro-mark-3d{animation:none}}
-@media(max-width:720px){.intro-visual{width:100%;min-height:138px;place-items:center start;margin-top:16px}.intro-mark-3d{width:118px;height:118px}}
-
 /* Docs continue the same spacious editorial system. */
-.docs-section{margin:62px 0 18px;padding-top:40px;border-top:1px solid var(--line);scroll-margin-top:92px}
+.docs-back-link{border:1px solid #1b1b1c;background:#111;color:#fff;border-radius:12px;padding:11px 17px;font-weight:750;text-decoration:none;box-shadow:0 4px 12px #00000013}
+.docs-back-link:hover{transform:translateY(-1px)}
+.docs-page{margin-bottom:38px}
+.docs-page-intro{padding:76px 2px 44px;max-width:900px}
+.docs-page-intro h1{font:500 clamp(48px,7vw,92px)/.95 var(--display);letter-spacing:-.065em;margin:0}
+.docs-page-intro>p:last-child{max-width:680px;color:#686c72;font-size:16px;line-height:1.7;margin:24px 0 0}
+.docs-section{margin:0 0 18px;padding-top:0;scroll-margin-top:92px}
 .docs-heading{display:flex;align-items:flex-end;justify-content:space-between;gap:38px;margin-bottom:24px}
 .docs-heading h2{font:500 clamp(38px,5vw,68px)/.98 var(--display);letter-spacing:-.05em;margin:8px 0 0}
 .docs-heading>p{max-width:510px;color:#71757b;font-size:13px;line-height:1.7;margin:0}
@@ -124,5 +123,5 @@ body[data-theme="fourmeme"] .primary{background:#f5d84b;color:#1a170d}
 .docs-routes>div{border:1px solid #e6e7e9;border-radius:13px;background:#fafafa;padding:14px}
 .docs-routes b,.docs-routes small{display:block}.docs-routes b{font-size:13px}.docs-routes small{color:#888c92;font-size:10px;margin-top:3px}
 .docs-card dl{display:grid;gap:0;margin:17px 0 0}.docs-card dl>div{display:flex;justify-content:space-between;gap:16px;border-top:1px solid #eceeef;padding:10px 0}.docs-card dt{font-weight:700;font-size:11px}.docs-card dd{color:#85898f;font-size:10px;text-align:right;margin:0}
-@media(max-width:720px){.docs-section{margin-top:40px;padding-top:30px}.docs-heading{display:block}.docs-heading h2{font-size:40px}.docs-heading>p{margin-top:13px}.docs-grid{grid-template-columns:1fr}.docs-wide{grid-column:auto}.docs-card{min-height:0;padding:20px}.docs-routes{grid-template-columns:1fr 1fr}.docs-card h3{margin-top:16px}}
+@media(max-width:720px){.docs-back-link{margin-left:auto;padding:10px 12px;font-size:12px}.docs-page-intro{padding:45px 2px 30px}.docs-page-intro h1{font-size:46px}.docs-page-intro>p:last-child{font-size:14px;margin-top:17px}.docs-heading{display:block}.docs-heading h2{font-size:40px}.docs-heading>p{margin-top:13px}.docs-grid{grid-template-columns:1fr}.docs-wide{grid-column:auto}.docs-card{min-height:0;padding:20px}.docs-routes{grid-template-columns:1fr 1fr}.docs-card h3{margin-top:16px}}
 @media(max-width:390px){.docs-routes{grid-template-columns:1fr}}
