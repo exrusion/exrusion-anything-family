@@ -10,14 +10,14 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=Instrument+Serif:ital@0;1&family=Manrope:wght@400;500;600;700;800&family=Nunito+Sans:wght@500;600;700;800;900&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Sora:wght@400;500;600;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="/styles.css?v=20260915-docs-3d">
+  <link rel="stylesheet" href="/styles.css?v=20260915-docs-page">
   <link rel="stylesheet" href="/brand-logos.css?v=20260914-fourmeme">
   <link rel="stylesheet" href="/wallet-selector.css">
 </head>
 <body data-theme="stonkfun">
   <nav class="topbar">
     <a class="brand" href="#launch" aria-label="Anything home"><span><img src="/anything-logo.webp?v=20260914-logo" alt="Anything logo" width="46" height="46"></span><b>anything</b><em>.family</em></a>
-    <div class="navlinks"><a class="active" href="#launch">Launch</a><a href="#launched">Launched</a><a href="#routeGuide">How it works</a><a href="#docs">Docs</a></div>
+    <div class="navlinks"><a class="active" href="#launch">Launch</a><a href="#launched">Launched</a><a href="#routeGuide">How it works</a><a href="/docs">Docs</a></div>
     <div class="status"><i></i><b id="apiStatus">Connecting routes</b></div>
     <button class="wallet" data-wallet>Connect wallet</button>
   </nav>
@@ -25,7 +25,7 @@
   <main id="launch">
     <section class="intro">
       <div><p class="kicker">Six launchpads. One workspace.</p><h1>Choose a rail.<br><span>Launch from here.</span></h1></div>
-      <div class="intro-visual" aria-label="Anything launch network"><img class="intro-mark-3d" src="/anything-logo.webp?v=20260914-logo" alt="Anything 3D launch network"></div>
+      <p class="intro-copy">Launch once or prepare the same token for every rail you select. Provider fees stay with each launchpad; Anything takes no cut.</p>
     </section>
 
     <section class="launch-mode" aria-label="Launch mode">
@@ -139,29 +139,6 @@
     <section class="launched-section" id="launched">
       <div class="launched-heading"><div><p class="kicker">Live history</p><h2>Launched from here.</h2></div><p>Confirmed launches made through Anything appear here with their provider and explorer link when available.</p></div>
       <div class="launched-grid" id="launchedGrid"><div class="launched-empty"><b>No launches saved yet.</b><span>Your successful launches will appear here automatically.</span></div></div>
-    </section>
-
-    <section class="docs-section" id="docs">
-      <div class="docs-heading"><div><p class="kicker">Product docs</p><h2>Launch with clarity.</h2></div><p>Anything is one interface for preparing and signing launches across six independent launchpads. Anything takes no platform cut and never receives your private keys.</p></div>
-      <div class="docs-grid">
-        <article class="docs-card docs-start"><span>01</span><h3>Single launch</h3><p>Choose one launchpad, upload the token image, enter the token details and configure that provider’s options. Review the route and approve the final transaction in the correct wallet.</p></article>
-        <article class="docs-card docs-start"><span>02</span><h3>Multi-launch</h3><p>Select any 1–6 launchpads and enter the shared token profile once. Anything prepares every selected route and guides you through the required wallet approvals. Each chain confirms independently.</p></article>
-        <article class="docs-card docs-wide">
-          <span>03</span><h3>Launchpad routes</h3>
-          <div class="docs-routes">
-            <div><b>StonkFun</b><small>Solana · stocks and reward markets</small></div>
-            <div><b>Pump.fun</b><small>Solana · meme and culture coins</small></div>
-            <div><b>Ember</b><small>Solana · curves and fee modules</small></div>
-            <div><b>Pons</b><small>Robinhood Chain · creator markets</small></div>
-            <div><b>Flap</b><small>BNB Chain · tax and programmable tokens</small></div>
-            <div><b>Four.meme</b><small>BNB Chain · meme markets</small></div>
-          </div>
-        </article>
-        <article class="docs-card"><span>04</span><h3>Wallets</h3><dl><div><dt>Solana</dt><dd>Phantom or compatible wallet</dd></div><div><dt>Robinhood Chain</dt><dd>MetaMask recommended</dd></div><div><dt>BNB Chain</dt><dd>Trust Wallet or MetaMask</dd></div></dl></article>
-        <article class="docs-card"><span>05</span><h3>Fees and custody</h3><p>Each provider keeps its own launch and trading fees. Network gas or rent still applies. Anything adds 0% and does not hold launch proceeds, wallet keys or signed transactions.</p></article>
-        <article class="docs-card"><span>06</span><h3>Before signing</h3><p>Use a square PNG, JPEG or WebP under 2 MB. Check the token name, ticker, pair, taxes, initial buy and recipient addresses. Onchain launches cannot be reversed after confirmation.</p></article>
-        <article class="docs-card"><span>07</span><h3>After launch</h3><p>Successful launches are saved in the Launched section on this device with their provider, network and explorer link when available. A failed route can be retried without repeating completed launches.</p></article>
-      </div>
     </section>
 
     <section class="rail-summary"><p>Connected rails</p><div><span>StonkFun</span><span>Pump.fun</span><span>Pons</span><span>Flap</span><span>Ember</span><span>Four.meme</span></div><b>6 providers · 3 networks · 1 workspace</b></section>
