@@ -729,7 +729,7 @@ async function launchStonk() {
   const signed = await wallet.signTransaction(transaction);
   const submit = await fetch(`${apiUrl}/v1/launches/submit`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ provider: "stonkfun", signedQuote: prepared.signedQuote, signedTransaction: bytesToBase64(signed.serialize()), logo: imageData }) });
   const result = await submit.json(); if (!submit.ok) throw new Error(readableError(result, "Launch submission failed."));
-  return { message: `StonkFun launch submitted${result.paymentSignature ? ` · ${shortAddress(result.paymentSignature)}` : ""}.`, address: result.mint || result.token || result.address || "", url: result.url || result.explorerUrl };
+  return { message: `StonkFun launch submitted${result.paymentSignature ? ` · ${shortAddress(result.paymentSignature)}` : ""}.`, address: result.mint || result.token || result.address || result.mintAddress || result.tokenMint || result.contractAddress || "", url: result.url || result.explorerUrl };
 }
 
 async function launchPump() {
@@ -740,7 +740,7 @@ async function launchPump() {
   const body = { provider: "pumpfun", idempotencyKey: `${launchAttemptId}:pumpfun`, creatorWallet: connection.address, name: $("#marketName").value, ticker: $("#ticker").value, description: $("#description").value || "Launch from Anything", imageUrl, xUrl: pumpXUrl, pairSymbol: $("#pairSelect").value, creatorFeeBps: 0, cashback: $("#pumpRewards").value === "holders", mayhemMode: $("#pumpMayhem").checked, links: { website: $("#sharedWebsite").value.trim(), x: $("#sharedX").value.trim(), telegram: $("#sharedTelegram").value.trim() } };
   const response = await fetch(`${apiUrl}/v1/launches/prepare`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body) });
   const result = await response.json(); if (!response.ok) throw new Error(readableError(result, "Pump.fun launch failed."));
-  return { message: `Pump.fun launch submitted${result.mint ? ` · ${shortAddress(result.mint)}` : ""}.`, address: result.mint || result.token || result.address || "", url: result.url || result.explorerUrl };
+  return { message: `Pump.fun launch submitted${result.mint ? ` · ${shortAddress(result.mint)}` : ""}.`, address: result.mint || result.token || result.address || result.mintAddress || result.tokenMint || result.contractAddress || "", url: result.url || result.explorerUrl };
 }
 
 async function launchPons() {
@@ -879,7 +879,7 @@ async function launchFourMeme() {
   const hash = await walletClient.writeContract({ address: prepared.coreAddress, abi: fourMemeAbi, functionName: "createToken", args: [prepared.createArg, prepared.signature], value });
   const receipt = await publicClient.waitForTransactionReceipt({ hash, confirmations: 1, timeout: 180000 });
   if (receipt.status !== "success") throw new Error("Four.meme launch transaction reverted.");
-  return { message: "Four.meme token launch confirmed.", address: prepared.tokenAddress || prepared.token || prepared.address || "", url: prepared.tokenAddress || prepared.token || prepared.address ? `https://four.meme/token/${prepared.tokenAddress || prepared.token || prepared.address}` : `https://bscscan.com/tx/${hash}` };
+  return { message: "Four.meme token launch confirmed.", address: prepared.tokenAddress || prepared.token || prepared.address || prepared.contractAddress || "", url: prepared.tokenAddress || prepared.token || prepared.address ? `https://four.meme/token/${prepared.tokenAddress || prepared.token || prepared.address || prepared.contractAddress}` : `https://bscscan.com/tx/${hash}` };
 }
 
 async function launchEmber() {
@@ -896,7 +896,7 @@ async function launchEmber() {
   const signed = await wallet.signTransaction(transaction);
   const submit = await fetch(`${apiUrl}/v1/launches/submit`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ provider: "ember", launchId: prepared.launchId, signedTransaction: bytesToBase64(signed.serialize()) }) });
   const result = await submit.json(); if (!submit.ok) throw new Error(result.error || "Ember launch submission failed.");
-  return { message: `Ember token live${result.mint ? ` · ${shortAddress(result.mint)}` : ""}.`, address: result.mint || result.pool || "", url: result.mint || result.pool ? `https://embercurve.fun/t/${result.mint || result.pool}` : undefined };
+  return { message: `Ember token live${result.mint ? ` · ${shortAddress(result.mint)}` : ""}.`, address: result.mint || result.pool || result.mintAddress || result.token || "", url: result.mint || result.pool ? `https://embercurve.fun/t/${result.mint || result.pool}` : undefined };
 }
 
 async function launchCurrentProvider() {
